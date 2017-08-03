@@ -56,54 +56,85 @@ def _find_process_info(process_name):
         "status": process[0].status(),
         "start_time": process[0].create_time(),
         "cpu_percent": process[0].cpu_percent(interval=1.0),
-        "memory_percent": process[0].memory_percent(),
-        "system_disk_usage": psutil.disk_usage('/')
+        "memory_percent": process[0].memory_percent()
     })
 
 
-def _prepare_process_info(_now, since_started):
-    """Prepare Json for detailed info"""
+def _process_info(_now):
+    """Process info"""
 
     process_info = _find_process_info('foglamp')
-    result = process_info
+    json_data = ''
     if process_info is not None:
-        since_started_psutil = _now - process_info['start_time']
+        uptime = _now - process_info['start_time']
         pid = process_info['pid']
         process_status = process_info['status']
         process_memory = process_info['memory_percent']
         process_cpu_percent = process_info['cpu_percent']
-        system_disk_usage = process_info['system_disk_usage']
-        result = {'uptime': since_started,
-                  'process_info': {
-                      'uptime': since_started_psutil,
+        json_data = {'process_info': {
+                      'uptime': uptime,
                       'pid': pid,
                       'status': process_status,
                       'memory_percentage': process_memory,
                       'cpu_percentage': process_cpu_percent
-                  }, 'system_info': {
-                'disk_usage': {
-                    'total': system_disk_usage.total,
-                    'used': system_disk_usage.used,
-                    'free': system_disk_usage.free,
-                    'percent': system_disk_usage.percent
-                }
-            }}
+                  }}
 
-    return result
+    return json_data
 
+
+def _system_usage_info():
+    """System info"""
+
+    system_disk_usage = psutil.disk_usage('/')
+    cpu_count = psutil.cpu_count()
+    virtual_memory = psutil.virtual_memory()
+    swap_memory = psutil.swap_memory()
+
+    json_data = {'system_info': {
+        'disk_usage': {
+            'total': system_disk_usage.total,
+            'used': system_disk_usage.used,
+            'free': system_disk_usage.free,
+            'percent': system_disk_usage.percent
+        },
+        'cpu_usage': {
+            'count': cpu_count
+        },
+        'memory_usage': {
+            'virtual_memory': {
+                'total': virtual_memory.total,
+                'available': virtual_memory.available,
+                'used': virtual_memory.used,
+                'free': virtual_memory.free,
+                'percent': virtual_memory.percent,
+                'active': virtual_memory.active,
+                'inactive': virtual_memory.inactive,
+                'cached': virtual_memory.cached,
+                'shared': virtual_memory.shared,
+                'buffers': virtual_memory.buffers
+            },
+            'swap_memory': {
+                'total': swap_memory.total,
+                'used': swap_memory.used,
+                'free': swap_memory.free,
+                'percent': swap_memory.percent
+            }
+        }
+    }}
+
+    return json_data
 
 async def ping(request):
     """
     Args:
-        request: details query param set to 1 for fetching more info
+        request: accepts ?details=1 as query param to return process and system info
 
    Returns:
         basic health information json payload
 
    :Example:
 
-       For more detailed info use details query param
-
+       curl -X GET http://localhost:8082/foglamp/ping
        curl -X GET http://localhost:8082/foglamp/ping?details=1
     """
     _now = time.time()
@@ -113,7 +144,10 @@ async def ping(request):
     if 'details' in request.query:
         detail_query_param = request.query['details']
         if detail_query_param.isdigit() and detail_query_param == '1':
-            result = _prepare_process_info(_now, since_started)
+            proc_info = _process_info(_now)
+            result.update(proc_info)
+            sys_info = _system_usage_info()
+            result.update(sys_info)
 
     return web.json_response(result)
 
