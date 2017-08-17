@@ -21,16 +21,24 @@ __version__ = "${VERSION}"
 class TestScheduler:
     def setup_method(self, method):
         asyncio.get_event_loop().run_until_complete(Scheduler().populate_test_data())
+        time.sleep(2)
 
-        from subprocess import call
-        call(["foglamp", "start"])
-        time.sleep(1)
-
+        # from subprocess import call
+        # call(["foglamp", "start"])
+        import subprocess
+        p = subprocess.Popen("foglamp start", stdout=subprocess.PIPE, shell=True)
+        (output, err) = p.communicate()
+        assert "Starting FogLAMP" == output
 
     def teardown_method(self, method):
         from subprocess import call
         call(["foglamp", "stop"])
-        time.sleep(1)
+        import subprocess
+        p = subprocess.Popen("foglamp start", stdout=subprocess.PIPE, shell=True)
+        time.sleep(2)
+        (output, err) = p.communicate()
+        assert "Starting FogLAMP" == output
+
 
 
     @pytest.mark.asyncio
@@ -62,6 +70,8 @@ class TestScheduler:
         r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
         retval = dict(r.json())
 
+        await asyncio.sleep(2)
+
         assert 200 == r.status_code
         assert not retval['schedule']['id'] == None
         assert retval['schedule']['exclusive'] == True
@@ -82,6 +92,8 @@ class TestScheduler:
         r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
         retval = dict(r.json())
 
+        await asyncio.sleep(2)
+
         assert 200 == r.status_code
         schedule_id = retval['schedule']['id']
 
@@ -91,6 +103,8 @@ class TestScheduler:
 
         r = requests.put('http://localhost:8082/foglamp/schedule/'+schedule_id, data=json.dumps(data), headers=headers)
         retval = dict(r.json())
+
+        await asyncio.sleep(2)
 
         assert 200 == r.status_code
         assert not retval['schedule']['id'] == None
@@ -117,6 +131,8 @@ class TestScheduler:
         r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
         retval = dict(r.json())
 
+        await asyncio.sleep(2)
+
         assert 200 == r.status_code
         schedule_id = retval['schedule']['id']
 
@@ -126,7 +142,7 @@ class TestScheduler:
 
         assert 200 == r.status_code
         assert retval['id'] == schedule_id
-        assert retval['message'] == "Schedule deleted successfully."
+        assert retval['message'] == "Schedule deleted successfully"
 
 
     @pytest.mark.asyncio
@@ -137,6 +153,8 @@ class TestScheduler:
 
         r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
         retval = dict(r.json())
+
+        await asyncio.sleep(2)
 
         assert 200 == r.status_code
         schedule_id = retval['schedule']['id']
@@ -174,6 +192,8 @@ class TestScheduler:
         r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
         retval = dict(r.json())
 
+        await asyncio.sleep(2)
+
         assert 200 == r.status_code
         schedule_id2 = retval['schedule']['id']
 
@@ -206,22 +226,219 @@ class TestScheduler:
 
     @pytest.mark.asyncio
     async def test_start_schedule(self):
-        pass
+        # First create a schedule to get the schedule_id
+        headers = {"Content-Type": 'application/json'}
+        data = {"type": 3, "name": "test_start_sch", "process_name": "sleep30", "repeat": "600"}
+
+        r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        schedule_id = retval['schedule']['id']
+
+        # Verify with Task record as to no task has been created yet
+        r = requests.get('http://localhost:8082/foglamp/task')
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert 0 == len(retval['tasks'])
+
+        # Now start the schedules
+        r = requests.post('http://localhost:8082/foglamp/schedule/start/' + schedule_id)
+        retval = dict(r.json())
+
+        await asyncio.sleep(2)
+
+        assert 200 == r.status_code
+        assert retval['id'] == schedule_id
+        assert retval['message'] == "Schedule started successfully"
+
+        # Verify with Task record as to one task has been created
+        r = requests.get('http://localhost:8082/foglamp/task')
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert 1 == len(retval['tasks'])
+        assert retval['tasks'][0]['state'] == 'RUNNING'
+        assert retval['tasks'][0]['process_name'] == 'sleep30'
+
 
     @pytest.mark.asyncio
     async def test_get_task(self):
-        pass
+        # First create a schedule to get the schedule_id
+        headers = {"Content-Type": 'application/json'}
+        data = {"type": 4, "name": "test_get_task1", "process_name": "sleep10"}
+
+        r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        schedule_id = retval['schedule']['id']
+
+        # Now start the schedule to create a Task
+        r = requests.post('http://localhost:8082/foglamp/schedule/start/' + schedule_id)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert retval['id'] == schedule_id
+        assert retval['message'] == "Schedule started successfully"
+
+        await asyncio.sleep(2)
+
+        # Verify with Task record as to one task has been created
+        r = requests.get('http://localhost:8082/foglamp/task')
+        retval = dict(r.json())
+
+        task_id = retval['tasks'][0]['id']
+
+        assert 200 == r.status_code
+
+        # Get Task
+        r = requests.get('http://localhost:8082/foglamp/task/' + task_id)
+        retval = dict(r.json())
+
+        task_id = retval['tasks'][0]['id']
+
+        assert 200 == r.status_code
+        assert retval['id'] == task_id
+
 
     @pytest.mark.asyncio
     async def test_get_tasks(self):
-        pass
+        # First create a schedule to get the schedule_id
+        headers = {"Content-Type": 'application/json'}
+        data = {"type": 4, "name": "test_get_task1", "process_name": "sleep10"}
+
+        r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        schedule_id = retval['schedule']['id']
+
+        # Now start the schedule to create a Task
+        r = requests.post('http://localhost:8082/foglamp/schedule/start/' + schedule_id)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert retval['id'] == schedule_id
+        assert retval['message'] == "Schedule started successfully"
+
+        await asyncio.sleep(2)
+
+        # Now start the schedule again to create another Task
+        r = requests.post('http://localhost:8082/foglamp/schedule/start/' + schedule_id)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert retval['id'] == schedule_id
+        assert retval['message'] == "Schedule started successfully"
+
+        await asyncio.sleep(2)
+
+        # Verify with Task record as to two  tasks have been created
+        r = requests.get('http://localhost:8082/foglamp/task')
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert 2 == len(retval['tasks'])
+        assert retval['tasks'][0]['process_name'] == 'sleep10'
+        assert retval['tasks'][1]['process_name'] == 'sleep10'
+
 
     @pytest.mark.asyncio
     async def test_get_tasks_latest(self):
-        pass
+        # First create a schedule to get the schedule_id
+        headers = {"Content-Type": 'application/json'}
+        data = {"type": 4, "name": "test_get_task1", "process_name": "sleep10"}
+
+        r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        schedule_id = retval['schedule']['id']
+
+        # Now start the schedule to create a Task
+        r = requests.post('http://localhost:8082/foglamp/schedule/start/' + schedule_id)
+        retval = dict(r.json())
+
+        await asyncio.sleep(2)
+
+        assert 200 == r.status_code
+        assert retval['id'] == schedule_id
+        assert retval['message'] == "Schedule started successfully"
+
+        # Now start the schedule again to create another Task
+        r = requests.post('http://localhost:8082/foglamp/schedule/start/' + schedule_id)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert retval['id'] == schedule_id
+        assert retval['message'] == "Schedule started successfully"
+
+        await asyncio.sleep(2)
+
+        # Verify with Task record as to two tasks have been created
+        r = requests.get('http://localhost:8082/foglamp/task/latest')
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert 2 == len(retval['tasks'])
+
+        # Verify only one Task record is returned
+        r = requests.get('http://localhost:8082/foglamp/task/latest')
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert 1 == len(retval['tasks'])
+        assert retval['tasks'][0]['process_name'] == 'sleep10'
+
 
     @pytest.mark.asyncio
     async def test_cancel_task(self):
-        pass
+        # First create a schedule to get the schedule_id
+        headers = {"Content-Type": 'application/json'}
+        data = {"type": 3, "name": "test_start_sch", "process_name": "sleep30", "repeat": "600"}
 
+        r = requests.post('http://localhost:8082/foglamp/schedule', data=json.dumps(data), headers=headers)
+        retval = dict(r.json())
 
+        assert 200 == r.status_code
+        schedule_id = retval['schedule']['id']
+
+        # Now start the schedules
+        r = requests.post('http://localhost:8082/foglamp/schedule/start/' + schedule_id)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert retval['id'] == schedule_id
+        assert retval['message'] == "Schedule started successfully"
+
+        await asyncio.sleep(2)
+
+        # Verify with Task record as to one task has been created
+        r = requests.get('http://localhost:8082/foglamp/task')
+        retval = dict(r.json())
+        task_id = retval['tasks'][0]['id']
+
+        assert 200 == r.status_code
+        assert 1 == len(retval['tasks'])
+        assert retval['tasks'][0]['state'] == 'RUNNING'
+        assert retval['tasks'][0]['process_name'] == 'sleep30'
+
+        # Now cancel the runnung task
+        r = requests.put('http://localhost:8082/foglamp/task/cancel/' + task_id)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert retval['id'] == task_id
+        assert retval['message'] == "Task cancelled successfully"
+
+        await asyncio.sleep(2)
+
+        # Verify the task has been cancelled
+        r = requests.get('http://localhost:8082/foglamp/task/' + task_id)
+        retval = dict(r.json())
+
+        assert 200 == r.status_code
+        assert retval['id'] == task_id
+        assert retval['state'] == 'CANCELED'

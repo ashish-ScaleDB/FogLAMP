@@ -421,7 +421,7 @@ async def delete_schedule(request):
 
         await server.Server.scheduler.delete_schedule(uuid.UUID(schedule_id))
 
-        return web.json_response({'message': 'Schedule deleted successfully.', 'id': schedule_id})
+        return web.json_response({'message': 'Schedule deleted successfully', 'id': schedule_id})
     except ValueError as ex:
         raise web.HTTPNotFound(reason=str(ex))
     except Exception as ex:
