@@ -42,6 +42,19 @@ async def add_master_data():
 
 
 class TestScheduler:
+    # @classmethod
+    # def setup_class(cls):
+    #     from subprocess import call
+    #     call(["foglamp", "start"])
+    #     time.sleep(2)
+    #
+    #     asyncio.get_event_loop().run_until_complete(add_master_data())
+    #
+    # @ classmethod
+    # def teardown_class(cls):
+    #     from subprocess import call
+    #     call(["foglamp", "stop"])
+    
     def setup_method(self, method):
         asyncio.get_event_loop().run_until_complete(add_master_data())
         from subprocess import call
