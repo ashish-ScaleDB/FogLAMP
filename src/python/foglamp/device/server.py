@@ -8,16 +8,17 @@
 
 import asyncio
 import signal
+import asyncpg
 
 from foglamp.device import coap
 from foglamp.device.ingest import Ingest
-
 
 __author__ = "Terris Linenbach"
 __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
+pool = None
 
 async def _stop(loop):
     """Stops the device server"""
@@ -28,6 +29,12 @@ async def _stop(loop):
 
     loop.stop()
 
+async def get_pool():
+    # Create a DB connection pool
+    global pool
+    if pool is None:
+        pool = await asyncpg.create_pool(database='foglamp')
+    return pool
 
 def start():
     """Starts the device server"""
@@ -45,4 +52,3 @@ def start():
     asyncio.ensure_future(coap.start())
 
     loop.run_forever()
-

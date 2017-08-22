@@ -9,7 +9,7 @@
 import asyncio
 import datetime
 import uuid
-
+import json
 import aiopg.sa
 import psycopg2
 import sqlalchemy as sa
@@ -17,6 +17,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from foglamp import logger
 from foglamp import statistics
+from foglamp.device import server
 
 
 __author__ = "Terris Linenbach"
@@ -196,6 +197,76 @@ class Ingest(object):
             except Exception as e:
                 _LOGGER.exception('Insert failed: %s', insert)
                 raise IOError(e)
+        finally:
+            if success is not None:
+                if success:
+                    cls._readings += 1
+                else:
+                    cls._discarded_readings += 1
+
+    @classmethod
+    async def add_readings2(cls, asset: str, timestamp: datetime.datetime,
+                           key: uuid.UUID = None, readings: dict = None) -> None:
+        """Add asset readings to FogLAMP
+
+        Args:
+            asset: Identifies the asset to which the readings belong
+            timestamp: When the readings were taken
+            key:
+                Unique key for these readings. If this method is called multiple with the same
+                key, the readings are only written to the database once
+            readings: A dictionary of sensor readings
+
+        Raises:
+            If this method raises an Exception, the discarded readings counter is
+            also incremented.
+
+            IOError:
+                Server error
+
+            ValueError:
+                An invalid value was provided
+        """
+        success = False
+
+        try:
+            if asset is None:
+                raise ValueError("asset can not be None")
+
+            if timestamp is None:
+                raise ValueError("timestamp can not be None")
+
+            if readings is None:
+                readings = dict()
+            elif not isinstance(readings, dict):
+                # Postgres allows values like 5 be converted to JSON
+                # Downstream processors can not handle this
+                raise ValueError("readings type must be dict")
+
+            # Comment out to test IntegrityError
+            # key = '123e4567-e89b-12d3-a456-426655440000'
+
+            # asyncpg / Postgres convert/verify data types ...
+            reading = json.dumps(readings)
+
+            query = """
+                    INSERT INTO readings (asset_code, read_key, user_ts, reading) VALUES  
+                    ('{asset_code}', '{read_key}', '{user_ts}', '{reading}')
+                    """.format(asset_code=asset, read_key=key, user_ts=timestamp, reading=reading)
+
+            # Take a connection from the pool
+            pool = await server.get_pool()
+            async with pool.acquire() as conn:
+                # Open a transaction
+                async with conn.transaction():
+                    # print(query)
+                    try:
+                        await conn.execute(query)
+                        success = True
+                    except Exception as ex:
+                        print(ex)
+                        success = None
+
         finally:
             if success is not None:
                 if success:
