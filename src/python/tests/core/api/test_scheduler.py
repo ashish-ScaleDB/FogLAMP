@@ -70,14 +70,14 @@ class TestScheduler(object):
         assert 200 == response.status_code
 
         retval = dict(response.json())
-        sch_id = retval['schedule']['id']
-        assert sch_id is not None
+        schedule_id = retval['schedule']['id']
+        assert schedule_id is not None
         expected = {"exclusive": True, "type": "INTERVAL", "time": "None", "day": None,
                     "process_name": "sleep10", "repeat":"1:00:00", "name": "test_post_sch"}
         self._verify_schedule(expected, retval['schedule'])
 
         # cleanup
-        self._delete_schedule(schedule_id=sch_id)
+        self._delete_schedule(schedule_id)
 
     def test_update_schedule(self):
         # setup: First create a schedule to get the schedule_id
@@ -90,10 +90,10 @@ class TestScheduler(object):
 
         r = requests.put(BASE_URL+'/schedule/' + sch_json['schedule']['id'], data=json.dumps(data), headers=headers)
         retval = dict(r.json())
-        sch_id = sch_json['schedule']['id']
+        schedule_id = sch_json['schedule']['id']
 
         assert 200 == r.status_code
-        assert sch_id is not None
+        assert schedule_id is not None
 
         # TODO: There is a bug in core/scheduler.py. It does not update the schedule type BUT if you pass a new schedule
         # type in above, it will return the new schedule type even though it does not update the DB record.
@@ -103,7 +103,7 @@ class TestScheduler(object):
         self._verify_schedule(expected, retval['schedule'])
 
         # cleanup
-        self._delete_schedule(schedule_id=sch_id)
+        self._delete_schedule(schedule_id)
 
     def test_delete_schedule(self):
         # set up: First create a schedule to get the schedule_id
@@ -125,21 +125,21 @@ class TestScheduler(object):
         d = {"type": 3, "name": "test_get_sch", "process_name": "sleep10", "repeat": "3600"}
         response = self._create_schedule(data=d)
         sch_json = dict(response.json())
-        sch_id = sch_json['schedule']['id']
+        schedule_id = sch_json['schedule']['id']
 
         # Now check the schedule
-        r = requests.get(BASE_URL + '/schedule/' + sch_id)
+        r = requests.get(BASE_URL + '/schedule/' + schedule_id)
         retval = dict(r.json())
 
         assert 200 == r.status_code
-        assert retval['id'] == sch_id
+        assert retval['id'] == schedule_id
 
         expected = {"exclusive": True, "type": "INTERVAL", "time": "None", "day": None,
                     "process_name": "sleep10", "repeat": "1:00:00", "name": "test_get_sch"}
         self._verify_schedule(expected, retval)
 
         # cleanup
-        self._delete_schedule(schedule_id=sch_id)
+        self._delete_schedule(schedule_id)
 
     def test_get_schedules(self):
         # setup: First create two schedules to get the schedule_id
@@ -182,8 +182,8 @@ class TestScheduler(object):
         assert retval['schedules'][1]['name'] in ['test_get_schA', 'test_get_schB']
 
         # clean up data
-        self._delete_schedule(schedule_id=schedule_id1)
-        self._delete_schedule(schedule_id=schedule_id2)
+        self._delete_schedule(schedule_id1)
+        self._delete_schedule(schedule_id2)
 
     def test_start_schedule(self):
         # setup: First create a schedule to get the schedule_id
@@ -213,7 +213,7 @@ class TestScheduler(object):
         assert retval['tasks'][0]['process_name'] == 'sleep10'
 
         # clean up data
-        self._delete_schedule(schedule_id=schedule_id)
+        self._delete_schedule(schedule_id)
 
     # def test_get_task(self):
     #     # First create a schedule to get the schedule_id
