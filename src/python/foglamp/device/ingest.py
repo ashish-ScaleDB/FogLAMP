@@ -63,6 +63,9 @@ class Ingest(object):
     _stop = False  # type: bool
     """Set to true when the server needs to stop"""
 
+
+    _readings_list = []
+
     @classmethod
     def start(cls):
         """Starts the server"""
@@ -274,3 +277,42 @@ class Ingest(object):
                 else:
                     cls._discarded_readings += 1
 
+
+    @classmethod
+    async def producer(cls, asset: str, timestamp: datetime.datetime,
+                       key: uuid.UUID = None, readings: dict = None) -> None:
+        if asset is None:
+            raise ValueError("asset can not be None")
+
+        if timestamp is None:
+            raise ValueError("timestamp can not be None")
+
+        if readings is None:
+            readings = dict()
+        elif not isinstance(readings, dict):
+            raise ValueError("readings type must be dict")
+
+        reading = json.dumps(readings)
+
+        # FIXME: timestamp
+        #datetime.datetime.now(tz=datetime.timezone.utc)
+        cls._readings_list.append((asset, key, reading, datetime.datetime.now(tz=datetime.timezone.utc)))
+        print("PRODUCER:", len(cls._readings_list))
+
+        # TODO: need to introduce list of cls._readings_list
+        if (len(cls._readings_list) == 10):
+            await cls.consumer(cls._readings_list)
+            del cls._readings_list[:]
+            print("FLUSH:", len(cls._readings_list))
+
+    @classmethod
+    async def consumer(cls, _list):
+        print("CONSUMER:", len(_list))
+        pool = await server.get_pool()
+        async with pool.acquire() as conn:
+                try:
+                    column = ['asset_code', 'read_key', 'reading', 'user_ts']
+                    result = await conn.copy_records_to_table(table_name='readings', records=_list, columns=column)
+                    print("RESULT:", result)
+                except Exception as ex:
+                    print(ex)

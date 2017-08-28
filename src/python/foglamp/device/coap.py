@@ -127,7 +127,7 @@ class IngestReadings(aiocoap.resource.Resource):
             increment_discarded_counter = False
 
             try:
-                await Ingest.add_readings2(asset=asset, timestamp=timestamp, key=key,
+                await Ingest.producer(asset=asset, timestamp=timestamp, key=key,
                                            readings=readings)
 
                 # Success
