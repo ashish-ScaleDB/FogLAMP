@@ -63,8 +63,8 @@ class Ingest(object):
     _stop = False  # type: bool
     """Set to true when the server needs to stop"""
 
-
-    _readings_list = []
+    _readings_list = [] # type: list
+    """Stores readings in a list"""
 
     @classmethod
     def start(cls):
@@ -77,6 +77,9 @@ class Ingest(object):
 
         Saves any pending statistics are saved
         """
+        if len(cls._readings_list):
+            await cls.add_readings3()
+
         if cls._stop or cls._write_statistics_loop_task is None:
             return
 
@@ -281,11 +284,24 @@ class Ingest(object):
     @classmethod
     async def producer(cls, asset: str, timestamp: datetime.datetime,
                        key: uuid.UUID = None, readings: dict = None) -> None:
+        """
+            Args:
+                asset: Identifies the asset to which the readings belong
+                timestamp: When the readings were taken
+                key: Unique key for these readings. If this method is called multiple with the same
+                key, the readings are only written to the database once
+                readings: A dictionary of sensor readings
+        """
         if asset is None:
             raise ValueError("asset can not be None")
 
         if timestamp is None:
             raise ValueError("timestamp can not be None")
+
+        if not isinstance(timestamp, datetime.datetime):
+            # validate
+            import dateutil.parser
+            timestamp = dateutil.parser.parse(timestamp)
 
         if readings is None:
             readings = dict()
@@ -294,25 +310,39 @@ class Ingest(object):
 
         reading = json.dumps(readings)
 
-        # FIXME: timestamp
-        #datetime.datetime.now(tz=datetime.timezone.utc)
-        cls._readings_list.append((asset, key, reading, datetime.datetime.now(tz=datetime.timezone.utc)))
-        print("PRODUCER:", len(cls._readings_list))
+        # asset, key, reading, timestamp added to readings_list
+        cls._readings_list.append((asset, key, reading, timestamp))
+        #print("PRODUCER:", len(cls._readings_list))
 
-        # TODO: need to introduce list of cls._readings_list
+        # batch size is max 10
         if (len(cls._readings_list) == 10):
-            await cls.consumer(cls._readings_list)
-            del cls._readings_list[:]
-            print("FLUSH:", len(cls._readings_list))
+            await cls.add_readings3()
 
     @classmethod
     async def consumer(cls, _list):
-        print("CONSUMER:", len(_list))
+        """
+            Args:
+                 _list: copy of _readings_list
+
+            Returns:
+                   Copy into readings table
+        """
+        #print("CONSUMER:", len(_list))
         pool = await server.get_pool()
         async with pool.acquire() as conn:
                 try:
                     column = ['asset_code', 'read_key', 'reading', 'user_ts']
                     result = await conn.copy_records_to_table(table_name='readings', records=_list, columns=column)
-                    print("RESULT:", result)
+                    #print("RESULT:", result)
                 except Exception as ex:
                     print(ex)
+
+    @classmethod
+    async def add_readings3(cls):
+        """
+            Consume readings and flush main readings_list
+        """
+        await cls.consumer(cls._readings_list)
+        del cls._readings_list[:]
+        print("FLUSH:", len(cls._readings_list))
+        #_LOGGER.info("FLUSH")
