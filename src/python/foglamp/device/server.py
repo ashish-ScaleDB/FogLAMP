@@ -48,7 +48,7 @@ def start():
             signal_name,
             lambda: asyncio.ensure_future(_stop(loop)))
 
-    Ingest.start()
+    asyncio.ensure_future(Ingest.start())
     asyncio.ensure_future(coap.start())
 
     loop.run_forever()

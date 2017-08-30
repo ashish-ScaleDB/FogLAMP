@@ -40,6 +40,8 @@ _CONNECTION_STRING = "dbname='foglamp'"
 
 _STATISTICS_WRITE_FREQUENCY_SECONDS = 5
 
+_BATCH_SIZE = 25
+
 
 class Ingest(object):
     """Adds sensor readings to FogLAMP
@@ -63,13 +65,17 @@ class Ingest(object):
     _stop = False  # type: bool
     """Set to true when the server needs to stop"""
 
-    _readings_list = [] # type: list
+    _readings_list = []  # type: list
     """Stores readings in a list"""
 
+    _queue = None  # type asyncio.Queue()
+
     @classmethod
-    def start(cls):
+    async def start(cls):
         """Starts the server"""
         cls._write_statistics_loop_task = asyncio.ensure_future(cls._write_statistics_loop())
+        cls._queue = asyncio.Queue()
+        await cls.consumer()
 
     @classmethod
     async def stop(cls):
@@ -77,9 +83,6 @@ class Ingest(object):
 
         Saves any pending statistics are saved
         """
-        if len(cls._readings_list):
-            await cls.add_readings3()
-
         if cls._stop or cls._write_statistics_loop_task is None:
             return
 
@@ -91,6 +94,8 @@ class Ingest(object):
 
         await cls._write_statistics_loop_task
         cls._write_statistics_loop_task = None
+
+        cls._queue = None
 
     @classmethod
     def increment_discarded_readings(cls):
@@ -212,7 +217,7 @@ class Ingest(object):
 
     @classmethod
     async def add_readings2(cls, asset: str, timestamp: datetime.datetime,
-                           key: uuid.UUID = None, readings: dict = None) -> None:
+                            key: uuid.UUID = None, readings: dict = None)-> None:
         """Add asset readings to FogLAMP
 
         Args:
@@ -280,7 +285,6 @@ class Ingest(object):
                 else:
                     cls._discarded_readings += 1
 
-
     @classmethod
     async def producer(cls, asset: str, timestamp: datetime.datetime,
                        key: uuid.UUID = None, readings: dict = None) -> None:
@@ -292,6 +296,7 @@ class Ingest(object):
                 key, the readings are only written to the database once
                 readings: A dictionary of sensor readings
         """
+
         if asset is None:
             raise ValueError("asset can not be None")
 
@@ -312,37 +317,29 @@ class Ingest(object):
 
         # asset, key, reading, timestamp added to readings_list
         cls._readings_list.append((asset, key, reading, timestamp))
-        #print("PRODUCER:", len(cls._readings_list))
 
-        # batch size is max 10
-        if (len(cls._readings_list) == 10):
-            await cls.add_readings3()
-
-    @classmethod
-    async def consumer(cls, _list):
-        """
-            Args:
-                 _list: copy of _readings_list
-
-            Returns:
-                   Copy into readings table
-        """
-        #print("CONSUMER:", len(_list))
-        pool = await server.get_pool()
-        async with pool.acquire() as conn:
-                try:
-                    column = ['asset_code', 'read_key', 'reading', 'user_ts']
-                    result = await conn.copy_records_to_table(table_name='readings', records=_list, columns=column)
-                    #print("RESULT:", result)
-                except Exception as ex:
-                    print(ex)
+        # batch size is configurable
+        #  TODO: add time check as well
+        # As of now the last batch, if not % _BATCH_SIZE will not be into the queue
+        if len(cls._readings_list) == _BATCH_SIZE:
+            await cls._queue.put(cls._readings_list)
+            cls._readings_list = []
 
     @classmethod
-    async def add_readings3(cls):
-        """
-            Consume readings and flush main readings_list
-        """
-        await cls.consumer(cls._readings_list)
-        del cls._readings_list[:]
-        print("FLUSH:", len(cls._readings_list))
-        #_LOGGER.info("FLUSH")
+    async def consumer(cls):
+        while True:
+            if cls._queue.empty():
+                await asyncio.sleep(.5)
+            else:
+                item = await cls._queue.get()
+
+                # Connection pool
+                pool = await server.get_pool()
+                async with pool.acquire() as conn:
+                    try:
+                        # Copy records to table
+                        column = ['asset_code', 'read_key', 'reading', 'user_ts']
+                        result = await conn.copy_records_to_table(table_name='readings', records=item, columns=column)
+                        # print("RESULT:", result)
+                    except Exception as ex:
+                        print(ex)
