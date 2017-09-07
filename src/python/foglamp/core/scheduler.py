@@ -30,7 +30,7 @@ __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
 # Module attributes
-_CONNECTION_STRING = "postgresql://foglamp:foglamp@localhost:5432/foglamp"
+_CONNECTION_STRING = "dbname='foglamp' user='foglamp'"
 
 
 class NotReadyError(RuntimeError):

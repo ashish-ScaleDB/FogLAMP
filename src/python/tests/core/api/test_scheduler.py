@@ -21,15 +21,13 @@ __version__ = "${VERSION}"
 
 # Module attributes
 __DB_NAME = "foglamp"
-_CONNECTION_STRING = 'postgresql://foglamp:foglamp@localhost:5432/foglamp'
-
 BASE_URL = 'http://localhost:8082/foglamp'
 headers = {"Content-Type": 'application/json'}
 
 pytestmark = pytest.mark.asyncio
 
 async def add_master_data():
-    conn = await asyncpg.connect(_CONNECTION_STRING)
+    conn = await asyncpg.connect(database=__DB_NAME, user=__DB_NAME)
     await conn.execute('''DELETE from foglamp.tasks WHERE process_name IN ('testsleep30', 'echo_test')''')
     await conn.execute(''' DELETE from foglamp.schedules WHERE process_name IN ('testsleep30', 'echo_test')''')
     await conn.execute(''' DELETE from foglamp.scheduled_processes WHERE name IN ('testsleep30', 'echo_test')''')
@@ -41,7 +39,7 @@ async def add_master_data():
     await asyncio.sleep(4)
 
 async def delete_master_data():
-    conn = await asyncpg.connect(_CONNECTION_STRING)
+    conn = await asyncpg.connect(database=__DB_NAME, user=__DB_NAME)
     await conn.execute('''DELETE from foglamp.tasks WHERE process_name IN ('testsleep30', 'echo_test')''')
     await conn.execute(''' DELETE from foglamp.schedules WHERE process_name IN ('testsleep30', 'echo_test')''')
     await conn.execute(''' DELETE from foglamp.scheduled_processes WHERE name IN ('testsleep30', 'echo_test')''')
