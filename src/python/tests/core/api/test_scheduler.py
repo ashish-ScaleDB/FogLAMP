@@ -27,7 +27,7 @@ headers = {"Content-Type": 'application/json'}
 pytestmark = pytest.mark.asyncio
 
 async def add_master_data():
-    conn = await asyncpg.connect(database=__DB_NAME, user=__DB_NAME, password=__DB_NAME)
+    conn = await asyncpg.connect(database=__DB_NAME, user='jenkins', password='jenkins')
     await conn.execute('''DELETE from foglamp.tasks WHERE process_name IN ('testsleep30', 'echo_test')''')
     await conn.execute(''' DELETE from foglamp.schedules WHERE process_name IN ('testsleep30', 'echo_test')''')
     await conn.execute(''' DELETE from foglamp.scheduled_processes WHERE name IN ('testsleep30', 'echo_test')''')
@@ -39,7 +39,7 @@ async def add_master_data():
     await asyncio.sleep(4)
 
 async def delete_master_data():
-    conn = await asyncpg.connect(database=__DB_NAME, user=__DB_NAME)
+    conn = await asyncpg.connect(database=__DB_NAME, user='jenkins', password='jenkins')
     await conn.execute('''DELETE from foglamp.tasks WHERE process_name IN ('testsleep30', 'echo_test')''')
     await conn.execute(''' DELETE from foglamp.schedules WHERE process_name IN ('testsleep30', 'echo_test')''')
     await conn.execute(''' DELETE from foglamp.scheduled_processes WHERE name IN ('testsleep30', 'echo_test')''')
