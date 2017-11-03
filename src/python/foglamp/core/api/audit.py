@@ -6,10 +6,10 @@
 
 
 from enum import IntEnum
-from aiohttp import web
 
+from aiohttp import web
+from foglamp.core import connect
 from foglamp.storage.payload_builder import PayloadBuilder
-from foglamp.storage.storage import Storage
 
 __author__ = "Amarendra K. Sinha, Ashish Jabble"
 __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
@@ -24,8 +24,6 @@ _help = """
     -------------------------------------------------------------------------------
 """
 
-# TODO: storage object comes from app['core']
-_storage = None #Storage(core_management_host='0.0.0.0', core_management_port=43509)
 
 class Severity(IntEnum):
     """Enumeration for log.severity"""
@@ -83,6 +81,8 @@ async def get_audit_entries(request):
 
         # TODO: Remove print
         print(complex_payload.payload())
+        _storage = connect.get_storage()
+        print(type(_storage))
         results = _storage.query_tbl_with_payload('log', complex_payload.payload())
 
         return web.json_response({'audit': results['rows']})
