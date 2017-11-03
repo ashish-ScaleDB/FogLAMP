@@ -7,8 +7,9 @@
 
 from enum import IntEnum
 from aiohttp import web
-from foglamp.storage.storage import Storage
+
 from foglamp.storage.payload_builder import PayloadBuilder
+from foglamp.storage.storage import Storage
 
 __author__ = "Amarendra K. Sinha, Ashish Jabble"
 __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
@@ -23,6 +24,8 @@ _help = """
     -------------------------------------------------------------------------------
 """
 
+# TODO: storage object comes from app['core']
+_storage = None #Storage(core_management_host='0.0.0.0', core_management_port=43509)
 
 class Severity(IntEnum):
     """Enumeration for log.severity"""
@@ -57,9 +60,7 @@ async def get_audit_entries(request):
     """
     try:
         limit = request.query.get('limit') if 'limit' in request.query else 0
-        offset = 0
-        if limit:
-            offset = request.query.get('skip') if 'skip' in request.query else 0
+        offset = request.query.get('skip') if 'skip' in request.query else 0
         source = request.query.get('source') if 'source' in request.query else None
         severity = request.query.get('severity') if 'severity' in request.query else None
 
@@ -70,8 +71,6 @@ async def get_audit_entries(request):
         if source is not None:
             complex_payload.AND_WHERE(['code', '=', source])
 
-        # TODO: FOGL-607(#7) if source is there then severity is not appending in payload
-        # WHERE 1=1 AND code=PURGE AND level=2 - we need this type syntax
         if severity is not None:
             complex_payload.AND_WHERE(['level', '=', Severity[severity].value])
 
@@ -82,11 +81,9 @@ async def get_audit_entries(request):
         if offset:
             complex_payload.OFFSET(int(offset))
 
-        # TODO: Remove print once storage layer becomes stable
+        # TODO: Remove print
         print(complex_payload.payload())
-
-        with Storage() as store:
-            results = store.query_tbl_with_payload('log', complex_payload.payload())
+        results = _storage.query_tbl_with_payload('log', complex_payload.payload())
 
         return web.json_response({'audit': results['rows']})
 
@@ -106,8 +103,7 @@ async def get_audit_log_codes(request):
 
         curl -X GET http://localhost:8082/foglamp/audit/logcode
     """
-    with Storage() as store:
-        result = store.query_tbl('log_codes')
+    result = _storage.query_tbl('log_codes')
 
     return web.json_response({'log_code': result['rows']})
 
