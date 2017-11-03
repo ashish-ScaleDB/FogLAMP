@@ -35,24 +35,22 @@ Supports a number of REST API:
   TODO: Improve error handling, use a connection pool
 """
 
-import asyncpg
 import json
-import os
 from aiohttp import web
+
+from collections import OrderedDict
+
+from foglamp.storage.payload_builder import PayloadBuilder
+from foglamp.storage.storage import Storage
+
 
 __author__ = "Mark Riddoch"
 __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-__CONNECTION = {'user': 'foglamp', 'database': 'foglamp'}
-
-try:
-  snap_user_common = os.environ['SNAP_USER_COMMON']
-  unix_socket_dir = "{}/tmp/".format(snap_user_common)
-  __CONNECTION['host'] = unix_socket_dir
-except KeyError:
-  pass
+# TODO: storage object comes from app['core']
+_storage = None
 __DEFAULT_LIMIT = 20
 __DEFAULT_OFFSET = 0
 __TIMESTAMP_FMT = 'YYYY-MM-DD HH24:MI:SS.MS'
@@ -78,20 +76,19 @@ async def asset_counts(request):
     SELECT asset_code, count(*) FROM readings GROUP BY asset_code;
     """
 
-    conn = await asyncpg.connect(**__CONNECTION)
+    # TODO: FOGL-643 - Aggregate with alias support needed to use payload builder
+    # PayloadBuilder().AGGREGATE(["count", "*"]).GROUP_BY('asset_code')
 
-    # Select the assets from the readings table
-    rows = await conn.fetch(
-        'SELECT asset_code, count(*) FROM readings GROUP BY asset_code')
-    columns = ('asset_code', 'count')
-    results = []
-    for row in rows:
-        results.append(dict(zip(columns, row)))
+    agg = {"operation": "count", "column": "*", "alias": "Count"}
+    d = OrderedDict()
+    d['aggregate'] = agg
+    d['group'] = "asset_code"
 
-    # Close the connection.
-    await conn.close()
+    # TODO: Remove print
+    print(json.dumps(d))
+    results = _storage.query_tbl_with_payload('readings', json.dumps(d))
 
-    return web.json_response(results)
+    return web.json_response(results['rows'])
 
 
 async def asset(request):
@@ -104,38 +101,29 @@ async def asset(request):
     Return the result of the Postgres query 
     SELECT TO_CHAR(user_ts, '__TIMESTAMP_FMT') as "timestamp", (reading)::jsonFROM readings WHERE asset_code = 'asset_code' ORDER BY user_ts DESC LIMIT 20 OFFSET 0
     """
-
-    conn = await asyncpg.connect(**__CONNECTION)
     asset_code = request.match_info.get('asset_code', '')
 
-    query = """
-            SELECT TO_CHAR(user_ts, '{0}') as "timestamp", (reading)::json
-            FROM readings WHERE asset_code = '{1}'
-            """.format(__TIMESTAMP_FMT, asset_code)
-
-    query += _where_clause(request)
+    # TODO: FOGL-637, 640
+    timestamp = {"column": "user_ts", "format": __TIMESTAMP_FMT, "alias": "timestamp"}
+    d = OrderedDict()
+    d['return'] = [timestamp]
+    d['where'] = {"column": "asset_code", "condition": "=", "value": asset_code}
+    # TODO: + where_clause(request)
 
     # Add the order by and limit clause
-    limit = __DEFAULT_LIMIT
-    offset = __DEFAULT_OFFSET
-    if 'limit' in request.query:
-        limit = request.query['limit']
-        offset = request.query['skip'] if 'skip' in request.query else __DEFAULT_OFFSET
+    d['sort'] = {"column": "user_ts", "direction": "desc"}
+    limit = int(request.query.get('limit')) if 'limit' in request.query else __DEFAULT_LIMIT
+    offset = int(request.query.get('skip')) if 'skip' in request.query else __DEFAULT_OFFSET
 
-    orderby = ' ORDER BY user_ts DESC LIMIT {0} OFFSET {1}'.format(limit, offset)
-    query += orderby
+    d['limit'] = limit
+    if offset:
+        d['skip'] = offset
 
-    # Select the assets from the readings table
-    rows = await conn.fetch(query)
-    results = []
-    for row in rows:
-        jrow = {'timestamp': row['timestamp'], 'reading': json.loads(row['reading'])}
-        results.append(jrow)
+    # TODO: Remove print
+    print(json.dumps(d))
+    results = _storage.query_tbl_with_payload('readings', json.dumps(d))
 
-    # Close the connection.
-    await conn.close()
-
-    return web.json_response(results)
+    return web.json_response(results['rows'])
 
 
 async def asset_reading(request):
@@ -162,38 +150,32 @@ async def asset_reading(request):
     Return the result of the Postgres query 
     SELECT TO_CHAR(user_ts, '__TIMESTAMP_FMT') as "timestamp", reading->>'reading' FROM readings WHERE asset_code = 'asset_code' ORDER BY user_ts DESC LIMIT 20 OFFSET 0
     """
-
-    conn = await asyncpg.connect(**__CONNECTION)
     asset_code = request.match_info.get('asset_code', '')
     reading = request.match_info.get('reading', '')
 
-    query = """
-            SELECT TO_CHAR(user_ts, '{0}') as "timestamp", reading->>'{2}' as "reading" 
-            FROM readings WHERE asset_code = '{1}'
-            """.format(__TIMESTAMP_FMT, asset_code, reading)
+    # TODO: FOGL-637, 640
+    timestamp = {"column": "user_ts", "format": __TIMESTAMP_FMT, "alias": "timestamp"}
+    json_property = OrderedDict()
+    json_property['json'] = {"column": "reading", "properties": reading}
+    json_property['alias'] = "reading"
 
-    # Process additional where clause conditions
-    query += _where_clause(request)
+    d = OrderedDict()
+    d['return'] = [timestamp, json_property]
+    d['where'] = {"column": "asset_code", "condition": "=", "value": asset_code}
+    # TODO: + where_clause(request)
 
     # Add the order by and limit clause
-    limit = __DEFAULT_LIMIT
-    offset = __DEFAULT_OFFSET
-    if 'limit' in request.query:
-        limit = request.query['limit']
-        offset = request.query['skip'] if 'skip' in request.query else __DEFAULT_OFFSET
+    d['sort'] = {"column": "user_ts", "direction": "desc"}
+    limit = int(request.query.get('limit')) if 'limit' in request.query else __DEFAULT_LIMIT
+    offset = int(request.query.get('skip')) if 'skip' in request.query else __DEFAULT_OFFSET
 
-    orderby = ' ORDER BY user_ts DESC LIMIT {0} OFFSET {1}'.format(limit, offset)
-    query += orderby
+    d['limit'] = limit
+    if offset:
+        d['skip'] = offset
 
-    # Select the assets from the readings table
-    rows = await conn.fetch(query)
-    results = []
-    for row in rows:
-        jrow = {'timestamp': row['timestamp'], reading: json.loads(row['reading'])}
-        results.append(jrow)
-
-    # Close the connection.
-    await conn.close()
+    # TODO: Remove print
+    print(json.dumps(d))
+    results = _storage.query_tbl_with_payload('readings', json.dumps(d))
 
     return web.json_response(results)
 
@@ -221,23 +203,23 @@ async def asset_summary(request):
     Return the result of the Postgres query 
     SELECT MIN(reading->>'reading'), MAX(reading->>'reading'), AVG((reading->>'reading')::float) FROM readings WHERE asset_code = 'asset_code'
     """
-
-    conn = await asyncpg.connect(**__CONNECTION)
     asset_code = request.match_info.get('asset_code', '')
     reading = request.match_info.get('reading', '')
 
-    query = """
-            SELECT MIN(reading->>'{1}'), MAX(reading->>'{1}'), AVG((reading->>'{1}')::float)
-            FROM readings WHERE asset_code = '{0}'
-            """.format(asset_code, reading)
+    # TODO: FOGL-643
+    prop_dict = {"column": "reading", "properties": reading}
+    min_dict = {"operation": "min", "json": prop_dict, "alias": "min"}
+    max_dict = {"operation": "max", "json": prop_dict, "alias": "max"}
+    avg_dict = {"operation": "avg", "json": prop_dict, "alias": "average"}
 
-    query += _where_clause(request)
-    # Select the assets from the readings table
-    row = await conn.fetchrow(query)
-    results = {'min': json.loads(row['min']), 'max': json.loads(row['max']), 'average': row['avg']}
+    d = OrderedDict()
+    d['aggregate'] = [min_dict, max_dict, avg_dict]
+    d['where'] = {"column": "asset_code", "condition": "=", "value": asset_code}
+    # TODO: + where_clause(request)
 
-    # Close the connection.
-    await conn.close()
+    # TODO: Remove print
+    print(json.dumps(d))
+    results = _storage.query_tbl_with_payload('readings', json.dumps(d))
 
     return web.json_response({reading: results})
 
@@ -267,8 +249,6 @@ async def asset_averages(request):
     Return the result of the Postgres query 
     SELECT user_ts AVG((reading->>'reading')::float) FROM readings WHERE asset_code = 'asset_code' GROUP BY user_ts
     """
-
-    conn = await asyncpg.connect(**__CONNECTION)
     asset_code = request.match_info.get('asset_code', '')
     reading = request.match_info.get('reading', '')
 
@@ -281,32 +261,31 @@ async def asset_averages(request):
         elif request.query['group'] == 'hours':
             ts_restraint = 'YYYY-MM-DD HH24'
 
-    query = """
-            SELECT TO_CHAR(user_ts, '{2}') as "timestamp", MIN(reading->>'{1}'), MAX(reading->>'{1}'), AVG((reading->>'{1}')::float)
-            FROM readings WHERE asset_code = '{0}'
-            """.format(asset_code, reading, ts_restraint)
+    # TODO: FOGL-637, 640
+    timestamp = {"column": "user_ts", "format": ts_restraint, "alias": "timestamp"}
+    prop_dict = {"column": "reading", "properties": reading}
+    min_dict = {"operation": "min", "json": prop_dict, "alias": "min"}
+    max_dict = {"operation": "max", "json": prop_dict, "alias": "max"}
+    avg_dict = {"operation": "avg", "json": prop_dict, "alias": "average"}
 
-    query += _where_clause(request)
+    agg = OrderedDict()
+    agg['aggregate'] = [min_dict, max_dict, avg_dict]
+    d = OrderedDict()
+    d['return'] = [timestamp, agg]
+    d['where'] = {"column": "asset_code", "condition": "=", "value": asset_code}
+    # TODO: + where_clause(request)
 
+    # TODO: Below payload is NOT COMPLETED
     # Add the group by
-    query += """ GROUP BY TO_CHAR(user_ts, '{0}') ORDER BY 1""".format(ts_restraint)
+    # query += """ GROUP BY TO_CHAR(user_ts, '{0}') ORDER BY 1""".format(ts_restraint)
 
     # Add the order by and limit clause
-    limit = __DEFAULT_LIMIT
-    if 'limit' in request.query:
-        limit = request.query['limit']
-    query += ' LIMIT {0}'.format(limit)
+    limit = int(request.query.get('limit')) if 'limit' in request.query else __DEFAULT_LIMIT
+    d['limit'] = limit
 
-    # Select the assets from the readings table
-    rows = await conn.fetch(query)
-    results = []
-    for row in rows:
-        jrow = {'time': row['timestamp'], 'min': json.loads(row['min']),
-                'max': json.loads(row['max']), 'average': row['avg']}
-        results.append(jrow)
-
-    # Close the connection.
-    await conn.close()
+    # TODO: Remove print
+    print(json.dumps(d))
+    results = _storage.query_tbl_with_payload('readings', json.dumps(d))
 
     return web.json_response(results)
 
