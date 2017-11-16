@@ -40,6 +40,9 @@ __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 """ Module information """
 
+
+_LOGGER = logger.setup(__name__)
+
 _MODULE_NAME = "sending_process"
 
 _MESSAGES_LIST = {
@@ -191,7 +194,7 @@ class SendingProcess:
     """ SendingProcess """
 
     # Filesystem path where the translators reside
-    _TRANSLATOR_PATH = "foglamp.translators."
+    _TRANSLATOR_PATH = "foglamp.plugins.north."
 
     # Define the type of the plugin managed by the Sending Process
     _PLUGIN_TYPE = "translator"
@@ -239,7 +242,7 @@ class SendingProcess:
             "description": "The name of the translator to use to translate the readings "
                            "into the output format and send them",
             "type": "string",
-            "default": "omf_translator"
+            "default": "http.http_translator"
         },
 
     }
@@ -256,6 +259,15 @@ class SendingProcess:
         Raises:
         """
 
+        ''' Parameters for the Storage layer '''
+
+        self._storage = Storage(_mgt_address, _mgt_port)
+        self._readings = Readings(_mgt_address, _mgt_port)
+        """" Interfaces to the FogLAMP Storage Layer """
+
+        self._log_storage = LogStorage(self._storage)
+        """" Used to log operations in the Storage Layer """
+
         # Configurations retrieved from the Configuration Manager
         self._config = {
             'enable': self._CONFIG_DEFAULT['enable']['default'],
@@ -266,29 +278,53 @@ class SendingProcess:
             'translator': self._CONFIG_DEFAULT['translator']['default'],
         }
         self._config_from_manager = ""
-
-        # Plugin handling - loading an empty plugin
-        self._module_template = self._TRANSLATOR_PATH + "empty_translator"
-        self._plugin = importlib.import_module(self._module_template)
-        self._plugin_info = {
-            'name': "",
-            'version': "",
-            'type': "",
-            'interface': "",
-            'config': ""
-        }
-
         self._mgt_name = _mgt_name
         self._mgt_port = _mgt_port
         self._mgt_address = _mgt_address
-        ''' Parameters for the Storage layer '''
 
-        self._storage = Storage(_mgt_address, _mgt_port)
-        self._readings = Readings(_mgt_address, _mgt_port)
-        """" Interfaces to the FogLAMP Storage Layer """
+        config = {}
 
-        self._log_storage = LogStorage(self._storage)
-        """" Used to log operations in the Storage Layer """
+        cfg_manager = ConfigurationManager(self._storage)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(cfg_manager.create_category(self._mgt_name, config,
+                                    '{} Translator'.format(self._mgt_name), True))
+
+        config = loop.run_until_complete(cfg_manager.get_category_all_items(self._mgt_name))
+
+        try:
+            plugin_module_name = config['plugin']['value']
+        except KeyError:
+            _LOGGER.exception("Unable to obtain configuration of module for plugin {}".format(self._mgt_name))
+            raise
+
+        try:
+            self._module_template = self._TRANSLATOR_PATH + plugin_module_name
+            self._plugin = importlib.import_module(self._module_template)
+
+        except Exception:
+            _LOGGER.exception('Unable to load module {} for north plugin {}'.format(plugin_module_name,
+                                                                          self._module_template))
+            raise
+
+        default_config = self._plugin.plugin_info()['config']
+        loop.run_until_complete(cfg_manager.create_category(self._mgt_name, default_config,
+                                    '{} Translator'.format(self._mgt_name)))
+
+        config = loop.run_until_complete(cfg_manager.get_category_all_items(self._mgt_name))
+
+        # TODO: Register for config changes
+        self._plugin_info = self._plugin.plugin_init(config)
+
+        # Plugin handling - loading an empty plugin
+        # self._module_template = self._TRANSLATOR_PATH + "empty_translator"
+        # self._plugin = importlib.import_module(self._module_template)
+        # self._plugin_info = {
+        #     'name': "",
+        #     'version': "",
+        #     'type': "",
+        #     'interface': "",
+        #     'config': ""
+        # }
 
     def _retrieve_configuration(self, stream_id):
         """ Retrieves the configuration from the Configuration Manager
@@ -380,38 +416,39 @@ class SendingProcess:
 
                 if self._config['enable']:
 
-                    self._plugin_load()
+                    #self._plugin_load()
 
                     self._plugin._log_debug_level = _log_debug_level
                     self._plugin._log_performance = _log_performance
 
                     self._plugin._storage = self._storage
-                    self._plugin_info = self._plugin.plugin_retrieve_info(stream_id)
+                    #self._plugin_info = self._plugin.plugin_info(stream_id)
 
                     _logger.debug("{0} - {1} - {2} ".format("start",
                                                             self._plugin_info['name'],
                                                             self._plugin_info['version']))
 
-                    if self._is_translator_valid():
-                        try:
-                            self._plugin.plugin_init()
-
-                        except Exception as e:
-                            _message = _MESSAGES_LIST["e000018"].format(self._plugin_info['name'])
-
-                            _logger.error(_message)
-                            raise PluginInitialiseFailed(e)
-                    else:
-                        exec_sending_process = False
-
-                        _message = _MESSAGES_LIST["e000015"].format(self._plugin_info['type'],
-                                                                    self._plugin_info['name'])
-                        _logger.warning(_message)
-
-                else:
-                    _message = _MESSAGES_LIST["i000003"]
-
-                    _logger.info(_message)
+                #     if self._is_translator_valid():
+                #         pass
+                #         # try:
+                #         #     self._plugin.plugin_init()
+                #         #
+                #         # except Exception as e:
+                #         #     _message = _MESSAGES_LIST["e000018"].format(self._plugin_info['name'])
+                #         #
+                #         #     _logger.error(_message)
+                #         #     raise PluginInitialiseFailed(e)
+                #     else:
+                #         exec_sending_process = False
+                #
+                #         _message = _MESSAGES_LIST["e000015"].format(self._plugin_info['type'],
+                #                                                     self._plugin_info['name'])
+                #         _logger.warning(_message)
+                #
+                # else:
+                #     _message = _MESSAGES_LIST["i000003"]
+                #
+                #     _logger.info(_message)
 
         except Exception as _ex:
             _message = _MESSAGES_LIST["e000004"].format(str(_ex))

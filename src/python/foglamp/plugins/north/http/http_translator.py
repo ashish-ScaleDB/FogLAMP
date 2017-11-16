@@ -29,6 +29,11 @@ _CONFIG_CATEGORY_NAME = "HTTP_TRANS"
 _CONFIG_CATEGORY_DESCRIPTION = "North Plugin HTTP Translator"
 
 _DEFAULT_CONFIG = {
+    'plugin': {
+        'description': 'Python module name of the plugin to load',
+        'type': 'string',
+        'default': 'http.http_translator'
+    },
     'url': {
         'description': 'URI to accept data',
         'type': 'string',
@@ -47,7 +52,7 @@ _DEFAULT_CONFIG = {
 # As per specs it should be plugin_info
 # def plugin_info():
 
-def plugin_retrieve_info():
+def plugin_info():
     return {
         'name': 'http_translator',
         'version': '1.0.0',
@@ -57,12 +62,12 @@ def plugin_retrieve_info():
     }
 
 
-def plugin_init(loop, storage_client):
-    global http_translator  # FIX ME: don't use global
+def plugin_init(cfg):
+    #global http_translator  # FIX ME: don't use global
     # loop = asyncio.get_event_loop()
-    http_translator = HttpTranslatorPlugin(loop, storage_client)
-    http_translator.initialize()
-    return http_translator.config
+    #http_translator = HttpTranslatorPlugin(loop, storage_client)
+    #http_translator.initialize()
+    return cfg
 
 
 def plugin_send(cfg, payload):
@@ -195,7 +200,7 @@ if __name__ == "__main__":
     event_loop = asyncio.get_event_loop()
     storage = Storage("127.0.0.1", 38717)
 
-    print(plugin_retrieve_info())
+    print(plugin_info())
     # print(plugin_info()) # should be this
 
     config = plugin_init(event_loop, storage)

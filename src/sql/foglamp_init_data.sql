@@ -78,6 +78,11 @@ INSERT INTO foglamp.configuration ( key, description, value )
 INSERT INTO foglamp.configuration ( key, description, value )
      VALUES ( 'COAP', 'CoAP Plugin Configuration', ' { "plugin" : { "type" : "string", "value" : "coap", "default" : "coap", "description" : "Python module name of the plugin to load" } } ');
 
+
+INSERT INTO foglamp.configuration ( key, description, value )
+     VALUES ( 'HTTP_TRANS', 'Http North Plugin Configuration', ' { "plugin" : { "type" : "string", "value" : "http.http_translator", "default" : "http.http_translator", "description" : "Python module name of the plugin to load" } } ');
+
+
 -- DELETE data for roles, resources and permissions
 DELETE FROM foglamp.role_resource_permission;
 DELETE FROM foglamp.roles;
@@ -121,7 +126,7 @@ INSERT INTO foglamp.statistics ( key, description, value, previous_value )
 insert into foglamp.scheduled_processes (name, script) values ('COAP', '["python3", "-m", "foglamp.device"]');
 insert into foglamp.scheduled_processes (name, script) values ('purge', '["python3", "-m", "foglamp.data_purge"]');
 insert into foglamp.scheduled_processes (name, script) values ('stats collector', '["python3", "-m", "foglamp.statistics_history"]');
-insert into foglamp.scheduled_processes (name, script) values ('sending process', '["python3", "-m", "foglamp.sending_process", "--stream_id", "1", "--debug_level", "1"]');
+insert into foglamp.scheduled_processes (name, script) values ('HTTP_TRANS', '["python3", "-m", "foglamp.sending_process", "--stream_id", "1", "--debug_level", "1"]');
 -- FogLAMP statistics into PI
 insert into foglamp.scheduled_processes (name, script) values ('statistics to pi','["python3", "-m", "foglamp.sending_process", "--stream_id", "2", "--debug_level", "1"]');
 
@@ -147,7 +152,7 @@ NULL, '00:00:15', true);
 -- Run the sending process every 15 seconds
 insert into foglamp.schedules(id, schedule_name, process_name, schedule_type,
 schedule_time, schedule_interval, exclusive)
-values ('2b614d26-760f-11e7-b5a5-be2e44b06b34', 'sending process', 'sending process', 3,
+values ('2b614d26-760f-11e7-b5a5-be2e44b06b34', 'HTTP_TRANS', 'HTTP_TRANS', 3,
 NULL, '00:00:15', true);
 
 -- Run FogLAMP statistics into PI every 25 seconds
