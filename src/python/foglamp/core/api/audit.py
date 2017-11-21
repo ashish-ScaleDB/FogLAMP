@@ -6,7 +6,8 @@
 
 
 from enum import IntEnum
-
+import json
+from collections import OrderedDict
 from aiohttp import web
 from foglamp.storage.payload_builder import PayloadBuilder
 from foglamp.core import connect
@@ -15,6 +16,9 @@ __author__ = "Amarendra K. Sinha, Ashish Jabble"
 __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
+
+__DEFAULT_LIMIT = 20
+__DEFAULT_OFFSET = 0
 
 _help = """
     -------------------------------------------------------------------------------
@@ -56,32 +60,56 @@ async def get_audit_entries(request):
         curl -X GET http://localhost:8081/foglamp/audit?source=LOGGN&severity=INFORMATION&limit=10
     """
     try:
-        limit = request.query.get('limit') if 'limit' in request.query else 0
-        offset = request.query.get('skip') if 'skip' in request.query else 0
+        limit = request.query.get('limit') if 'limit' in request.query else __DEFAULT_LIMIT
+        offset = request.query.get('skip') if 'skip' in request.query else __DEFAULT_OFFSET
         source = request.query.get('source') if 'source' in request.query else None
         severity = request.query.get('severity') if 'severity' in request.query else None
 
         # HACK: This way when we can more future we do not get an exponential
         # explosion of if statements
-        complex_payload = PayloadBuilder().WHERE(['1', '=', '1'])
+        payload = PayloadBuilder().WHERE(['1', '=', '1'])
+        if source is not None and source != "":
+            payload.AND_WHERE(['code', '=', source])
 
-        if source is not None:
-            complex_payload.AND_WHERE(['code', '=', source])
+        if severity is not None and severity != "":
+            payload.AND_WHERE(['level', '=', Severity[severity].value])
 
-        if severity is not None:
-            complex_payload.AND_WHERE(['level', '=', Severity[severity].value])
+        _and_where_payload = payload.chain_payload()
+        # SELECT *, count(*) OVER() FROM log - No support yet from storage layer
+        # TODO: once ^^ resolved we should replace below storage call for getting total rows
+        # TODO: FOGL-643 - Aggregate with alias support needed to use payload builder
+        aggregate = {"operation": "count", "column": "*", "alias": "count"}
+        d = OrderedDict()
+        d['aggregate'] = aggregate
+        d.update(_and_where_payload)
+        total_count_payload = json.dumps(d)
 
-        complex_payload.ORDER_BY(['ts', 'desc'])
-
-        if limit:
-            complex_payload.LIMIT(int(limit))
-        if offset:
-            complex_payload.OFFSET(int(offset))
-
+        # SELECT count (*) FROM log <_and_where_payload>
         _storage = connect.get_storage()
-        results = _storage.query_tbl_with_payload('log', complex_payload.payload())
+        result = _storage.query_tbl_with_payload('log', total_count_payload)
+        total_count = result['rows'][0]['count']
 
-        return web.json_response({'audit': results['rows']})
+        payload.ORDER_BY(['ts', 'desc'])
+        payload.LIMIT(int(limit))
+
+        if offset != '' and int(offset) > 0:
+            payload.OFFSET(int(offset))
+
+        # SELECT * FROM log <payload.payload()>
+        results = _storage.query_tbl_with_payload('log', payload.payload())
+        res = []
+        for row in results['rows']:
+            r = dict()
+            r["details"] = row["log"]
+            # TODO: FOGL-695 fix PURGE logging level
+            severity_level = int(row["level"])
+            r["severity"] = Severity(severity_level).name if severity_level in range(1, 5) else "UNKNOWN"
+            r["source"] = row["code"]
+            r["timestamp"] = row["ts"]
+
+            res.append(r)
+
+        return web.json_response({'audit': res, 'total_count': total_count})
 
     except ValueError as ex:
         raise web.HTTPNotFound(reason=str(ex))
