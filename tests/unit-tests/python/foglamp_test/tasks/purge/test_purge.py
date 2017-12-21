@@ -29,7 +29,7 @@ class TestPurge:
 
     # TODO: FOGL-510 Hardcoded core_management_port needs to be removed, should be coming form a test configuration file
     _name = "Foo"
-    _core_management_port = 41661
+    _core_management_port = 35121
     _core_management_host = "localhost"
 
     _store = StorageClient("localhost", _core_management_port)
@@ -46,19 +46,19 @@ class TestPurge:
         # Delete all test data from readings and logs
         cls._store.delete_from_tbl("readings", {})
         cls._store.delete_from_tbl("log", {})
-    
+
         # Update statistics
         payload = PayloadBuilder().SET(value=0, previous_value=0).WHERE(["key", "=", "PURGED"]).\
             OR_WHERE(["key", "=", "UNSNPURGED"]).payload()
         cls._store.update_tbl("statistics", payload)
-    
+
         # Update streams
         payload = PayloadBuilder().SET(last_object=0).payload()
         cls._store.update_tbl("streams", payload)
 
         # Restore default configuration
         cls._update_configuration()
-    
+
     @classmethod
     def _insert_readings_data(cls, hours_delta):
         """Insert reads in readings table with specified time delta of user_ts (in hours)
@@ -66,7 +66,7 @@ class TestPurge:
             hours_delta: delta of user_ts (in hours)
         :return:
             The id of inserted row
-    
+
         """
         readings = []
 
@@ -88,7 +88,7 @@ class TestPurge:
         payload = PayloadBuilder().AGGREGATE(["max", "id"]).payload()
         result = cls._store.query_tbl_with_payload("readings", payload)
         return int(result["rows"][0]["max_id"])
-    
+
     @classmethod
     def _get_reads(cls):
         """Get values from readings table where asset_code is asset_code of test data
@@ -97,7 +97,7 @@ class TestPurge:
         query_payload = PayloadBuilder().WHERE(["asset_code", "=", 'TEST_PURGE_UNIT']).payload()
         res = cls._readings.query(query_payload)
         return res
-    
+
     @classmethod
     def _update_streams(cls, rows_to_update=1, id_last_object=0):
         """Update the table streams to simulate the last_object sent to historian
@@ -113,7 +113,7 @@ class TestPurge:
             cls._store.update_tbl("streams", payload)
 
     @classmethod
-    def _update_configuration(cls, age=72, retain_unsent=False) -> dict:
+    def _update_configuration(cls, age='72', retain_unsent='False') -> dict:
         """"Update the configuration table with the appropriate information regarding "PURE_READ" using pre-existing
             configuration_manager tools
         args:
@@ -124,12 +124,12 @@ class TestPurge:
         """
         event_loop = asyncio.get_event_loop()
         cfg_manager = ConfigurationManager(cls._store)
-        event_loop.run_until_complete(cfg_manager.set_category_item_value_entry(cls._CONFIG_CATEGORY_NAME,
-                                                                                          'age', age))
+        event_loop.run_until_complete(cfg_manager.set_category_item_value_entry(
+            cls._CONFIG_CATEGORY_NAME, 'age', age))
         event_loop.run_until_complete(cfg_manager.set_category_item_value_entry(
             cls._CONFIG_CATEGORY_NAME, 'retainUnsent', retain_unsent))
         return event_loop.run_until_complete(cfg_manager.get_category_all_items(cls._CONFIG_CATEGORY_NAME))
-    
+
     @classmethod
     def _get_stats(cls):
         """"Get data stored in statistics table to be verified
@@ -143,7 +143,7 @@ class TestPurge:
         result_unsnpurged = cls._store.query_tbl_with_payload("statistics", payload)
 
         return result_purged["rows"][0]["value"], result_unsnpurged["rows"][0]["value"]
-    
+
     @classmethod
     def _get_log(cls):
         """"Get data stored in logs table to be verified
@@ -153,7 +153,7 @@ class TestPurge:
         payload = PayloadBuilder().WHERE(["code", "=", 'PURGE']).ORDER_BY({"ts", "desc"}).LIMIT(1).payload()
         result = cls._store.query_tbl_with_payload("log", payload)
         return int(result["rows"][0]["level"]), result["rows"][0]["log"]
-    
+
     def test_no_read_purge(self):
         """Test that when there is no data in readings table, purge process runs but no data is purged"""
         purge = Purge()
@@ -169,7 +169,7 @@ class TestPurge:
         stats = self._get_stats()
         assert stats[0] == 0
         assert stats[1] == 0
-    
+
     def test_unsent_read_purge_current(self):
         """Test that when there is unsent  data in readings table with user_ts = now,
         purge process runs but no data is purged
@@ -179,7 +179,7 @@ class TestPurge:
             readings in readings table = 1 with user_ts = now()
             last_object in streams = 0 (default for all rows)
         """
-        
+
         last_id = self._insert_readings_data(0)
 
         purge = Purge()
@@ -245,7 +245,7 @@ class TestPurge:
         purge.run()
 
         log = self._get_log()
-        assert log[0] == 2
+        assert log[0] == 4
         assert log[1]["rowsRemoved"] == 1
         assert log[1]["unsentRowsRemoved"] == 1
         assert log[1]["rowsRetained"] == 0
@@ -279,7 +279,7 @@ class TestPurge:
         purge.run()
 
         log = self._get_log()
-        assert log[0] == 2
+        assert log[0] == 4
         assert log[1]["rowsRemoved"] == 1
         assert log[1]["unsentRowsRemoved"] == 1
         assert log[1]["rowsRetained"] == 1
@@ -340,7 +340,7 @@ class TestPurge:
 
         self._insert_readings_data(80)
         self._insert_readings_data(0)
-        self._update_configuration(age=72, retain_unsent=True)
+        self._update_configuration(age='72', retain_unsent='True')
 
         purge = Purge()
         purge.run()
@@ -372,7 +372,7 @@ class TestPurge:
 
         self._insert_readings_data(80)
         last_id = self._insert_readings_data(0)
-        self._update_configuration(age=72, retain_unsent=True)
+        self._update_configuration(age='72', retain_unsent='True')
         self._update_streams(rows_to_update=1, id_last_object=last_id)
 
         purge = Purge()
@@ -405,7 +405,7 @@ class TestPurge:
 
         self._insert_readings_data(80)
         last_id = self._insert_readings_data(0)
-        self._update_configuration(age=72, retain_unsent=True)
+        self._update_configuration(age='72', retain_unsent='True')
         self._update_streams(rows_to_update=-1, id_last_object=last_id)
 
         purge = Purge()
@@ -438,7 +438,7 @@ class TestPurge:
 
         self._insert_readings_data(15)
         last_id = self._insert_readings_data(0)
-        self._update_configuration(age=15, retain_unsent=False)
+        self._update_configuration(age='15', retain_unsent='False')
 
         purge = Purge()
         purge.run()
@@ -457,3 +457,7 @@ class TestPurge:
         readings = self._get_reads()
         assert readings["count"] == 1
         assert readings["rows"][0]["id"] == last_id
+
+    @pytest.mark.skip(reason="FOGL-889 - Add tests purge by size scenarios")
+    def test_purge_by_size(self):
+        pass
