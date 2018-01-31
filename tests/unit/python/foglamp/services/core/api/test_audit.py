@@ -6,9 +6,9 @@
 
 
 import json
-import pytest
-from aiohttp import web
 from unittest.mock import MagicMock, patch
+from aiohttp import web
+import pytest
 from foglamp.services.core import routes
 from foglamp.services.core import connect
 from foglamp.common.storage_client.storage_client import StorageClient
@@ -20,8 +20,8 @@ __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
 
-@pytest.allure.feature("rest-api-unit")
-@pytest.allure.story("audit")
+@pytest.allure.feature("FOGL-1005")
+@pytest.allure.story("api", "audit", "FOGL-1006")
 class TestAudit:
 
     @pytest.fixture
@@ -33,7 +33,7 @@ class TestAudit:
 
     async def test_get_severity(self, client):
         resp = await client.get('/foglamp/audit/severity')
-        assert resp.status == 200
+        assert 200 == resp.status
         result = await resp.text()
         json_response = json.loads(result)
         log_severity = json_response['logSeverity']
@@ -63,19 +63,57 @@ class TestAudit:
                     {"code": "STRMN", "description": "Streaming Process"},
                     {"code": "SYPRG", "description": "System Purge"}
                     ]
+
         with patch.object(connect, 'get_storage', return_value=storage_client_mock):
             with patch.object(storage_client_mock, 'query_tbl', return_value={"rows": response}):
                 resp = await client.get('/foglamp/audit/logcode')
-                assert resp.status == 200
+                assert 200 == resp.status
                 result = await resp.text()
                 json_response = json.loads(result)
                 log_codes = [key['code'] for key in json_response['logCode']]
 
-                # verify the default log_codes which are defined in init.sql
+                # verify the default log_codes with their values which are defined in init.sql
                 assert 4 == len(log_codes)
-
-                # verify code values
                 assert 'PURGE' in log_codes
                 assert 'LOGGN' in log_codes
                 assert 'STRMN' in log_codes
                 assert 'SYPRG' in log_codes
+
+    # TODO: source request params as it needs validation, a bit tricky to mock with existing code
+    # '?source=PURGE','?source=PURGE&severity=error')
+    @pytest.mark.parametrize("request_params", [
+        '',
+        '?skip=1',
+        '?severity=error',
+        '?severity=ERROR&limit=1',
+        '?severity=INFORMATION&limit=1&skip=1',
+        '?source=&severity=&limit=&skip='
+    ])
+    async def test_get_audit_with_params(self, client, request_params):
+        storage_client_mock = MagicMock(StorageClient)
+        rows = {"rows": [{"log": {"end_time": "2018-01-30 18:39:48.1517317788", "rowsRemaining": 0,
+                                  "start_time": "2018-01-30 18:39:48.1517317788", "rowsRemoved": 0,
+                                  "unsentRowsRemoved": 0, "rowsRetained": 0},
+                          "code": "PURGE", "level": "4", "id": 2,
+                          "ts": "2018-01-30 18:39:48.796263+05:30", 'count': 1}]}
+        with patch.object(connect, 'get_storage', return_value=storage_client_mock):
+            with patch.object(storage_client_mock, 'query_tbl_with_payload', return_value=rows):
+                    resp = await client.get('/foglamp/audit{}'.format(request_params))
+                    assert 200 == resp.status
+                    result = await resp.text()
+                    json_response = json.loads(result)
+                    assert 1 == json_response['totalCount']
+                    assert 1 == len(json_response['audit'])
+
+    # TODO: add source request param with invalid data, a bit tricky to mock with existing code
+    @pytest.mark.parametrize("request_params, response_code, response_message", [
+        ('?limit=invalid', 400, "Limit must be a positive integer"),
+        ('?limit=-1', 400, "Limit must be a positive integer"),
+        ('?skip=invalid', 400, "Skip/Offset must be a positive integer"),
+        ('?skip=-1', 400, "Skip/Offset must be a positive integer"),
+        ('?severity=BLA', 400, "'BLA' is not a valid severity")
+    ])
+    async def test_params_with_bad_data(self, client, request_params, response_code, response_message):
+        resp = await client.get('/foglamp/audit{}'.format(request_params))
+        assert response_code == resp.status
+        assert response_message == resp.reason
