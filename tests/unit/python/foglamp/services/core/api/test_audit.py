@@ -20,8 +20,8 @@ __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
 
-@pytest.allure.feature("FOGL-1005")
-@pytest.allure.story("api", "audit", "FOGL-1006")
+@pytest.allure.feature("unit")
+@pytest.allure.story("api", "audit")
 class TestAudit:
 
     @pytest.fixture
@@ -44,28 +44,24 @@ class TestAudit:
         # verify the name and value of severity
         for i in range(len(log_severity)):
             if log_severity[i]['index'] == 1:
-                assert 1 == log_severity[i]['index']
                 assert 'FATAL' == log_severity[i]['name']
             elif log_severity[i]['index'] == 2:
-                assert 2 == log_severity[i]['index']
                 assert 'ERROR' == log_severity[i]['name']
             elif log_severity[i]['index'] == 3:
-                assert 3 == log_severity[i]['index']
                 assert 'WARNING' == log_severity[i]['name']
             elif log_severity[i]['index'] == 4:
-                assert 4 == log_severity[i]['index']
                 assert 'INFORMATION' == log_severity[i]['name']
 
     async def test_audit_log_codes(self, client):
         storage_client_mock = MagicMock(StorageClient)
-        response = [{"code": "PURGE", "description": "Data Purging Process"},
-                    {"code": "LOGGN", "description": "Logging Process"},
-                    {"code": "STRMN", "description": "Streaming Process"},
-                    {"code": "SYPRG", "description": "System Purge"}
-                    ]
+        response = {"rows": [{"code": "PURGE", "description": "Data Purging Process"},
+                             {"code": "LOGGN", "description": "Logging Process"},
+                             {"code": "STRMN", "description": "Streaming Process"},
+                             {"code": "SYPRG", "description": "System Purge"}
+                             ]}
 
         with patch.object(connect, 'get_storage', return_value=storage_client_mock):
-            with patch.object(storage_client_mock, 'query_tbl', return_value={"rows": response}):
+            with patch.object(storage_client_mock, 'query_tbl', return_value=response):
                 resp = await client.get('/foglamp/audit/logcode')
                 assert 200 == resp.status
                 result = await resp.text()
@@ -91,13 +87,13 @@ class TestAudit:
     ])
     async def test_get_audit_with_params(self, client, request_params):
         storage_client_mock = MagicMock(StorageClient)
-        rows = {"rows": [{"log": {"end_time": "2018-01-30 18:39:48.1517317788", "rowsRemaining": 0,
+        response = {"rows": [{"log": {"end_time": "2018-01-30 18:39:48.1517317788", "rowsRemaining": 0,
                                   "start_time": "2018-01-30 18:39:48.1517317788", "rowsRemoved": 0,
                                   "unsentRowsRemoved": 0, "rowsRetained": 0},
                           "code": "PURGE", "level": "4", "id": 2,
                           "ts": "2018-01-30 18:39:48.796263+05:30", 'count': 1}]}
         with patch.object(connect, 'get_storage', return_value=storage_client_mock):
-            with patch.object(storage_client_mock, 'query_tbl_with_payload', return_value=rows):
+            with patch.object(storage_client_mock, 'query_tbl_with_payload', return_value=response):
                     resp = await client.get('/foglamp/audit{}'.format(request_params))
                     assert 200 == resp.status
                     result = await resp.text()
