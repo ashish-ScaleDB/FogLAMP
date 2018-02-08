@@ -7,7 +7,8 @@
 import asyncio
 from unittest.mock import MagicMock, patch
 import pytest
-from foglamp.common.statistics import Statistics
+
+from foglamp.common.statistics import Statistics, _logger
 from foglamp.common.storage_client.storage_client import StorageClient
 
 
@@ -61,17 +62,17 @@ class TestStatistics:
 
         assert exception_message == str(excinfo.value)
 
-    # def test_update_exception(self):
-    #     storage_client_mock = MagicMock(spec=StorageClient)
-    #     s = Statistics(storage_client_mock)
-    #     with patch.object(s._storage, 'update_tbl', side_effect=Exception()):
-    #         with pytest.raises(Exception) as excinfo:
-    #             loop = asyncio.get_event_loop()
-    #             loop.run_until_complete(s.update('B', 5))
-    #         print(excinfo)
-    #
-    #     #_logger.assert_called_once_with('abab')
-
+    def test_update_exception(self):
+        storage_client_mock = MagicMock(spec=StorageClient)
+        s = Statistics(storage_client_mock)
+        with patch.object(s._storage, 'update_tbl', side_effect=Exception()):
+            with pytest.raises(Exception):
+                with patch.object(_logger, 'exception') as logger_exception:
+                    loop = asyncio.get_event_loop()
+                    loop.run_until_complete(s.update('B', 5))
+            logger_exception.assert_called_once_with('Unable to update statistics value based on statistics_key %s and value_increment %s'
+                , 'B', 5)
+            
     # def test_add_update(self):
     #     stat_dict = {'FOGBENCH/TEMPERATURE': 1, 'FOGBENCH/MOUSE': 1, 'FOGBENCH/SWITCH': 1,
     #                  'FOGBENCH/HUMIDITY': 1, 'FOGBENCH/WALL CLOCK': 1, 'FOGBENCH/PRESSURE': 1}
