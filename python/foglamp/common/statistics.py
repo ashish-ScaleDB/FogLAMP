@@ -41,6 +41,12 @@ class Statistics(object):
         Returns:
             None
         """
+        if type(key) is not str:
+            raise TypeError('key must be a string')
+
+        if type(value_increment) is not int:
+            raise ValueError('value must be an integer')
+
         try:
             payload = PayloadBuilder()\
                 .WHERE(["key", "=", key])\
@@ -83,16 +89,3 @@ class Statistics(object):
                     'Unable to update statistics value based on statistics_key %s and value_increment %s, error %s'
                     , key, value_increment, str(ex))
                 raise
-
-# TODO: FOGL-484 Move below commented code to tests directory
-# async def _main():
-#     _storage = StorageClient(core_management_host="0.0.0.0", core_management_port=33881)
-#
-#     _stats = Statistics(_storage)
-#     await _stats.update(key='READINGS', value_increment=10)
-#
-#
-# if __name__ == '__main__':
-#     import asyncio
-#     loop = asyncio.get_event_loop()
-#     loop.run_until_complete(_main())
