@@ -65,7 +65,7 @@ sqlite_log() {
 
 # Check SQLite 3 command line is available
 if ! [[ -x "$(command -v sqlite3)" ]]; then
-    sqlite_log "info" "The 'sqlite3. command cannot be found. Is SQLite3 installed?" "outonly" "pretty"
+    sqlite_log "info" "The sqlite3 command cannot be found. Is SQLite3 installed?" "outonly" "pretty"
     sqlite_log "info" "If SQLite3 is installed, check if the bin dir is in the PATH." "outonly" "pretty"
     exit 1
 else
@@ -98,7 +98,7 @@ sqlite_start() {
 
             # File created
             if [[ "$1" == "noisy" ]]; then
-                sqlite_log "info" "SQLite3 database ${DEFAULT_SQLITE_DB_FILE} has been createdy." "all" "pretty"
+                sqlite_log "info" "SQLite3 database ${DEFAULT_SQLITE_DB_FILE} has been created." "all" "pretty"
             else
                 sqlite_log "info" "SQLite3 database ${DEFAULT_SQLITE_DB_FILE} has been created." "logonly" "pretty"
             fi
@@ -321,8 +321,10 @@ case "$engine_management" in
         MANAGED=true
 
         # Check if sqlitei3 is present in the expected path
+        # We don't need to manage SQLite3 db
+        # This will be removed in next commits
         SQLITE_SQL="$FOGLAMP_ROOT/plugins/storage/sqlite/bin/psql"
-        if ! [[ -x "${PG_SQL}" ]]; then
+        if ! [[ -x "${SQLITE_SQL}" ]]; then
             sqlite_log "err" "SQLite program not found: the database server cannot be managed." "all" "pretty"
             exit 1
         fi
