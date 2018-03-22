@@ -225,7 +225,7 @@ CREATE TABLE foglamp.destinations (
     description   character varying(255)      NOT NULL DEFAULT '', -- A brief description of the destination entry
     properties    JSON                        NOT NULL DEFAULT '{ "streaming" : "all" }',                   -- A generic set of properties
     active_window JSON                        NOT NULL DEFAULT '[ "always" ]',                              -- The window of operations
-    active        boolean                     NOT NULL DEFAULT true,                                               -- When false, all streams to this destination stop and are inactive
+    active        boolean                     NOT NULL DEFAULT 't',                                               -- When false, all streams to this destination stop and are inactive
     ts         DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f+00:00', 'NOW'))
 );                                              -- Creation or last update
 
@@ -241,7 +241,7 @@ CREATE TABLE foglamp.streams (
     object_block   JSON                        NOT NULL DEFAULT '{}',  -- Definition of how the stream must be organised
     object_filter  JSON                        NOT NULL DEFAULT '{}',  -- Any filter involved in selecting the data to stream
     active_window  JSON                        NOT NULL DEFAULT '{}',  -- The window of operations
-    active         boolean                     NOT NULL DEFAULT true,  -- When false, all data to this stream stop and are inactive
+    active         boolean                     NOT NULL DEFAULT 't',  -- When false, all data to this stream stop and are inactive
     last_object    bigint                      NOT NULL DEFAULT 0,     -- The ID of the last object streamed (asset or reading, depending on the object_stream)
     ts             DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f+00:00', 'NOW')),          -- Creation or last update
     CONSTRAINT streams_fk1 FOREIGN KEY (destination_id)
@@ -474,9 +474,9 @@ CREATE TABLE foglamp.schedules (
              --schedule_time     DATE,                            -- Start time
              schedule_time     INTEGER,                            -- Start time
              schedule_day      INTEGER,                        -- ISO day 1 = Monday, 7 = Sunday
-             exclusive         boolean not null default true,   -- true = Only one task can run
+             exclusive         boolean not null default 't',   -- true = Only one task can run
                                                                 -- at any given time
-             enabled           boolean not null default false,  -- false = A given schedule is disabled by default
+             enabled           boolean not null default 'f',  -- false = A given schedule is disabled by default
   CONSTRAINT schedules_pkey PRIMARY KEY  ( id ),
   CONSTRAINT schedules_fk1  FOREIGN KEY  ( process_name )
   REFERENCES scheduled_processes ( name ) MATCH SIMPLE
