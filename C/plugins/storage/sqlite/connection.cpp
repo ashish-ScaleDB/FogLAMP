@@ -1586,7 +1586,8 @@ bool Connection::jsonAggregates(const Value& payload,
 				{
 					jsonConstraint.append(" AND ");
 				}
-
+				// JSON1 SQLite3 extension 'json_type' object check:
+				// json_type(field, '$.key1.key2') IS NOT NULL
 				// Build the Json keys NULL check
 				jsonConstraint.append("json_type(");
 				jsonConstraint.append(json["column"].GetString());
@@ -1602,13 +1603,13 @@ bool Connection::jsonAggregates(const Value& payload,
 					}
 					if (prev.length() > 0)
 					{
-						// Append Jsoin field for NULL check
+						// Append Json field for NULL check
 						jsonConstraint.append(prev);
 						jsonConstraint.append(".");
 					}
 					prev = itr->GetString();
 					field++;
-					// Append Jsoin field for query
+					// Append Json field for query
 					sql.append(itr->GetString());
 				}
 				// Add last Json key
@@ -1619,17 +1620,22 @@ bool Connection::jsonAggregates(const Value& payload,
 			}
 			else
 			{
+				// Append Json field for query
 				sql.append(jsonFields.GetString());
 
 				if (! jsonConstraint.isEmpty())
 				{
 					jsonConstraint.append(" AND ");
 				}
-				// Add condition for json key not null
+				// JSON1 SQLite3 extension 'json_type' object check:
+				// json_type(field, '$.key1.key2') IS NOT NULL
+				// Build the Json key NULL check
 				jsonConstraint.append("json_type(");
 				jsonConstraint.append(json["column"].GetString());
 				jsonConstraint.append(", '$.");
 				jsonConstraint.append(jsonFields.GetString());
+
+				// Add condition for json key not null
 				jsonConstraint.append("') IS NOT NULL");
 			}
 			sql.append("')");
@@ -1700,6 +1706,18 @@ bool Connection::jsonAggregates(const Value& payload,
 				{
 					jsonConstraint.append(" AND ");
 				}
+				// Use json_extract(field, '$.key1.key2') AS value
+				sql.append("json_extract(");
+				sql.append(json["column"].GetString());
+				sql.append(", '$.");
+
+				// JSON1 SQLite3 extension 'json_type' object check:
+				// json_type(field, '$.key1.key2') IS NOT NULL
+				// Build the Json keys NULL check
+				jsonConstraint.append("json_type(");
+				jsonConstraint.append(json["column"].GetString());
+				jsonConstraint.append(", '$.");
+
 				if (jsonFields.IsArray())
 				{
 					string prev;
@@ -1708,30 +1726,33 @@ bool Connection::jsonAggregates(const Value& payload,
 						if (prev.length() > 0)
 						{
 							jsonConstraint.append(prev);
-							jsonConstraint.append(", '$.");
+							jsonConstraint.append('.');
+							sql.append('.');
 						}
-						prev = itr->GetString();
+						// Append Json field for query
 						sql.append(itr->GetString());
-						sql.append('\'');
+						prev = itr->GetString();
 					}
-					jsonConstraint.append(", '$.");
-					jsonConstraint.append(jsonFields.GetString());
-					jsonConstraint.append("') != ''");
+					// Add last Json key
+					jsonConstraint.append(prev);
+
+					// Add condition for json key not null
+					jsonConstraint.append("') IS NOT NULL");
 				}
 				else
 				{
-					// Extract Json fields
-					sql.append("json_extract(");
-					sql.append(json["column"].GetString());
-					sql.append(", '$.");
+					// Append Json field for query
 					sql.append(jsonFields.GetString());
-					sql.append("')");
-					jsonConstraint.append(" json_extract(");
-					jsonConstraint.append(json["column"].GetString());
-					jsonConstraint.append(", '$.");
+
+					// JSON1 SQLite3 extension 'json_type' object check:
+					// json_type(field, '$.key1.key2') IS NOT NULL
+					// Build the Json key NULL check
 					jsonConstraint.append(jsonFields.GetString());
-					jsonConstraint.append("') != ''");
+
+					// Add condition for json key not null
+					jsonConstraint.append("') IS NOT NULL");
 				}
+				sql.append("')");
 			}
 			sql.append(") AS \"");
 			if (itr->HasMember("alias"))
@@ -2204,11 +2225,12 @@ bool Connection::returnJson(const Value& json,
 	{
 		if (! jsonConstraint.isEmpty())
 		{
-			jsonConstraint.append(" AND json_extract(");
+			jsonConstraint.append(" AND ");
 		}
-		// Call JSON1 SQLite3 extension routine 'json_extract'
-		// json_extract(field, '$.key1.key2') AS value
-		jsonConstraint.append("json_extract(");
+		// JSON1 SQLite3 extension 'json_type' object check:
+		// json_type(field, '$.key1.key2') IS NOT NULL
+		// Build the Json keys NULL check
+		jsonConstraint.append("json_type(");
 		jsonConstraint.append(json["column"].GetString());
 		jsonConstraint.append(", '$.");
 		int field = 0;
@@ -2225,30 +2247,36 @@ bool Connection::returnJson(const Value& json,
 				jsonConstraint.append(".");
 			}
 			field++;
+			// Append Json field for query
 			sql.append(itr->GetString());
 			prev = itr->GetString();
 		}
-		sql.append("') ");
-
-		// JSON1 SQLite3 extension object check:
-		// json_extract(field, '$.key1.key2') != '{}'
+		// Add last Json key
 		jsonConstraint.append(prev);
-		jsonConstraint.append("') != '{}'");
+
+		// Add condition for all json keys not null
+		jsonConstraint.append("') IS NOT NULL");
 	}
 	else
 	{
+		// Append Json field for query
 		sql.append(jsonFields.GetString());
-		sql.append("\')");
 		if (! jsonConstraint.isEmpty())
 		{
-			jsonConstraint.append(" AND json_extract(");
+			jsonConstraint.append(" AND ");
 		}
-		jsonConstraint.append("json_extract(");
+		// JSON1 SQLite3 extension 'json_type' object check:
+		// json_type(field, '$.key1.key2') IS NOT NULL
+		// Build the Json key NULL check
+		jsonConstraint.append("json_type(");
 		jsonConstraint.append(json["column"].GetString());
 		jsonConstraint.append(", '$.");
 		jsonConstraint.append(jsonFields.GetString());
-		jsonConstraint.append("') != '{}'");
+
+		// Add condition for json key not null
+		jsonConstraint.append("') IS NOT NULL");
 	}
+	sql.append("') ");
 
 	return true;
 }
