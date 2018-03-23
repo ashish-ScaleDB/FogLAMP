@@ -334,7 +334,7 @@ case "$engine_management" in
     
     "false")
 
-        # This is an explicit imput, which means that we do not want to send
+        # This is an explicit input, which means that we do not want to send
         # messages when we start or stop the server
         print_output="silent"
         MANAGED=false
