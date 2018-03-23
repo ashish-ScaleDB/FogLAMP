@@ -40,6 +40,7 @@ using namespace rapidjson;
 #define F_TIMEH24_S     "%H:%M:%S"
 #define F_DATEH24_S     "%Y-%m-%d %H:%M:%S"
 #define F_DATEH24_MS    "%Y-%m-%d %H:%M:%f"
+#define SQLITE3_NOW     "strftime('%Y-%m-%d %H:%M:%f+00:00', 'now')"
 
 static time_t connectErrorTime = 0;
 map<string, string> sqliteDateFormat = {
@@ -212,12 +213,15 @@ Connection::Connection()
 		 * Build the ATTACH DATABASE command in order to get
 		 * 'foglamp.' prefix in all SQL queries
 		 */
-		string attachDb("ATTACH DATABASE '");
-		attachDb += dbPath + "' AS foglamp;";
+		SQLBuffer attachDb;
+		attachDb.append("ATTACH DATABASE '");
+		attachDb.append(dbPath + "' AS foglamp;");
+
+		const char *sqlStmt = attachDb.coalesce();
 
 		// Exec the statement
 		rc = sqlite3_exec(dbHandle,
-				  attachDb.c_str(),
+				  sqlStmt,
 				  NULL,
 				  NULL,
 				  &zErrMsg);
@@ -228,7 +232,7 @@ Connection::Connection()
 			const char* errMsg = "Failed to attach 'foglamp' database in";
 			Logger::getLogger()->error("%s '%s': error %s",
 						   errMsg,
-						   dbPath.c_str(),
+						   sqlStmt,
 						   zErrMsg);
 			connectErrorTime = time(0);
 
@@ -240,6 +244,8 @@ Connection::Connection()
 			Logger::getLogger()->info("Connected to SQLite3 database: %s",
 						  dbPath.c_str());
 		}
+		//Release sqlStmt buffer
+		delete[] sqlStmt;
 	}
 }
 
@@ -689,8 +695,7 @@ int		col = 0;
 			{
 				if (strcmp(str, "now()") == 0)
 				{
-					// TODO: strftime('%Y-%m-%d %H:%M:%fZ', 'now')
-					values.append("datetime('now')");
+					values.append(SQLITE3_NOW);
 				}
 				else
 				{
@@ -799,7 +804,14 @@ int		col = 0;
 					regex e ("[a-zA-Z][a-zA-Z0-9_]*\\(.*\\)");
 					if (regex_match (s,e))
 					{
-						sql.append(str);
+						if (strcmp(str, "now()") == 0)
+						{
+							sql.append(SQLITE3_NOW);
+						}
+						else
+						{
+							sql.append(str);
+						}
 					}
 					else
 					{
@@ -1300,7 +1312,6 @@ int retrieve;
 		 id,
 		 blksize);
 	
-
 	sqlite3_stmt *stmt;
 	// Prepare the SQL statement and get the result set
 	if (sqlite3_prepare_v2(dbHandle,
@@ -1550,6 +1561,7 @@ bool Connection::jsonAggregates(const Value& payload,
 					   "The json property must be an object");
 				return false;
 			}
+
 			if (!json.HasMember("column"))
 			{
 				raiseError("retrieve",
@@ -1560,6 +1572,7 @@ bool Connection::jsonAggregates(const Value& payload,
 			// json_extract(field, '$.key1.key2') AS value
 			sql.append(json["column"].GetString());
 			sql.append(", '$.");
+
 			if (!json.HasMember("properties"))
 			{
 				raiseError("retrieve",
@@ -1586,27 +1599,31 @@ bool Connection::jsonAggregates(const Value& payload,
 					// Not tested with SQLite3
 					if (prev.length() > 0)
 					{
-						jsonConstraint.append("json_extract(");
 						jsonConstraint.append(prev);
-						jsonConstraint.append(", '$.");
+						jsonConstraint.append('.');
 					}
 					prev = itr->GetString();
 					field++;
 					sql.append(itr->GetString());
 				}
 				sql.append("')");
+
 				// Not tested with SQLite 3
+				/*
 				jsonConstraint.append("json_extract(");
 				jsonConstraint.append(json["column"].GetString());
 				jsonConstraint.append(", '$.");
 				jsonConstraint.append(jsonFields.GetString());
 				jsonConstraint.append("') != '{}'");
+				*/
 			}
 			else
 			{
-				// Not tested with SQLite 3
 				sql.append(jsonFields.GetString());
 				sql.append("')");
+
+				// Not tested with SQLite 3
+				/*
 				if (! jsonConstraint.isEmpty())
 				{
 					jsonConstraint.append(" AND json_extract(");
@@ -1615,6 +1632,7 @@ bool Connection::jsonAggregates(const Value& payload,
 				jsonConstraint.append(", '$.");
 				jsonConstraint.append(jsonFields.GetString());
 				jsonConstraint.append("') != '{}'");
+				*/
 			}
 		}
 		sql.append(") AS \"");
