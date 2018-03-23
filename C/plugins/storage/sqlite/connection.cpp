@@ -1553,7 +1553,6 @@ bool Connection::jsonAggregates(const Value& payload,
 		}
 		else if (aggregates.HasMember("json"))
 		{
-			// TODO: not tested with SQLite 3
 			const Value& json = aggregates["json"];
 			if (! json.IsObject())
 			{
@@ -1568,8 +1567,8 @@ bool Connection::jsonAggregates(const Value& payload,
 					   "The json property is missing a column property");
 				return false;
 			}
+			// Use json_extract(field, '$.key1.key2') AS value
 			sql.append("json_extract(");
-			// json_extract(field, '$.key1.key2') AS value
 			sql.append(json["column"].GetString());
 			sql.append(", '$.");
 
@@ -1587,7 +1586,12 @@ bool Connection::jsonAggregates(const Value& payload,
 				{
 					jsonConstraint.append(" AND ");
 				}
+
+				// Build the Json keys NULL check
+				jsonConstraint.append("json_type(");
 				jsonConstraint.append(json["column"].GetString());
+				jsonConstraint.append(", '$.");
+
 				int field = 0;
 				string prev;
 				for (Value::ConstValueIterator itr = jsonFields.Begin(); itr != jsonFields.End(); ++itr)
@@ -1596,44 +1600,39 @@ bool Connection::jsonAggregates(const Value& payload,
 					{
 						sql.append(".");
 					}
-					// Not tested with SQLite3
 					if (prev.length() > 0)
 					{
+						// Append Jsoin field for NULL check
 						jsonConstraint.append(prev);
-						jsonConstraint.append('.');
+						jsonConstraint.append(".");
 					}
 					prev = itr->GetString();
 					field++;
+					// Append Jsoin field for query
 					sql.append(itr->GetString());
 				}
-				sql.append("')");
+				// Add last Json key
+				jsonConstraint.append(prev);
 
-				// Not tested with SQLite 3
-				/*
-				jsonConstraint.append("json_extract(");
-				jsonConstraint.append(json["column"].GetString());
-				jsonConstraint.append(", '$.");
-				jsonConstraint.append(jsonFields.GetString());
-				jsonConstraint.append("') != '{}'");
-				*/
+				// Add condition for all json keys not null
+				jsonConstraint.append("') IS NOT NULL");
 			}
 			else
 			{
 				sql.append(jsonFields.GetString());
-				sql.append("')");
 
-				// Not tested with SQLite 3
-				/*
 				if (! jsonConstraint.isEmpty())
 				{
-					jsonConstraint.append(" AND json_extract(");
+					jsonConstraint.append(" AND ");
 				}
+				// Add condition for json key not null
+				jsonConstraint.append("json_type(");
 				jsonConstraint.append(json["column"].GetString());
 				jsonConstraint.append(", '$.");
 				jsonConstraint.append(jsonFields.GetString());
-				jsonConstraint.append("') != '{}'");
-				*/
+				jsonConstraint.append("') IS NOT NULL");
 			}
+			sql.append("')");
 		}
 		sql.append(") AS \"");
 		if (aggregates.HasMember("alias"))
@@ -1691,8 +1690,6 @@ bool Connection::jsonAggregates(const Value& payload,
 					raiseError("retrieve", "The json property is missing a column property");
 					return false;
 				}
-				//sql.append('(');
-				//sql.append(json["column"].GetString());
 				if (!json.HasMember("properties"))
 				{
 					raiseError("retrieve", "The json property is missing a properties property");
@@ -1703,7 +1700,6 @@ bool Connection::jsonAggregates(const Value& payload,
 				{
 					jsonConstraint.append(" AND ");
 				}
-				//jsonConstraint.append(json["column"].GetString());
 				if (jsonFields.IsArray())
 				{
 					string prev;
@@ -1911,8 +1907,6 @@ bool Connection::jsonAggregates(const Value& payload,
 
 /**
  * Process the modifers for limit, skip, sort and group
- * TODO
- * Not tested yet with SQLite3
  */
 bool Connection::jsonModifiers(const Value& payload, SQLBuffer& sql)
 {
