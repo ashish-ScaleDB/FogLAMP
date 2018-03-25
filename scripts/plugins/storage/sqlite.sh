@@ -88,8 +88,8 @@ sqlite_start() {
             ;;
 
         "1")
-            # Database nof found, created datafile
-            COMMAND_OUTPUT=`${SQLITE} ${DEFAULT_SQLITE_DB_FILE} .databases 2>&1`
+            # Database not found, created datafile
+            COMMAND_OUTPUT=`${SQLITE_SQL} ${DEFAULT_SQLITE_DB_FILE} .databases 2>&1`
             RET_CODE=$?
             if [ "${RET_CODE}" -ne 0 ]; then
                 sqlite_log "err" "Error creating SQLite3 database ${DEFAULT_SQLITE_DB_FILE}: ${COMMAND_OUTPUT}" "all" "pretty"
