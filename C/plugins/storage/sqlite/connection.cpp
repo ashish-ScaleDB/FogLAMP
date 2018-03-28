@@ -367,15 +367,15 @@ unsigned long nRows = 0, nCols = 0;
 
 	// Add 'rows' and 'count' to the final JSON document
 	doc.AddMember("count", count, allocator);
-        doc.AddMember("rows", rows, allocator);
+	doc.AddMember("rows", rows, allocator);
 
-        /* Write out the JSON document we created */
-        StringBuffer buffer;
-        Writer<StringBuffer> writer(buffer);
-        doc.Accept(writer);
+	/* Write out the JSON document we created */
+	StringBuffer buffer;
+	Writer<StringBuffer> writer(buffer);
+	doc.Accept(writer);
 
 	// Set the result as a CPP string 
-        resultSet = buffer.GetString();
+	resultSet = buffer.GetString();
 
 	// Return SQLite3 ret code
 	return rc;
@@ -1184,11 +1184,11 @@ int		row = 0;
 
 	sql.append("INSERT INTO foglamp.readings ( asset_code, read_key, reading, user_ts ) VALUES ");
 
-    if (!doc.HasMember("readings"))
-    {
+	if (!doc.HasMember("readings"))
+	{
  		raiseError("appendReadings", "Payload is missing a readings array");
-        return -1;
-    }
+	        return -1;
+	}
 	Value &rdings = doc["readings"];
 	if (!rdings.IsArray())
 	{
@@ -1375,8 +1375,6 @@ long numReadings = 0;
 		int rc;
 		int purge_readings = 0;
 
-		const char *n_query = oldest.coalesce();
-		delete[] n_query;
 		// Exec query and get result in 'purge_readings' via 'selectCallback'
 		rc = sqlite3_exec(dbHandle,
 				  query,
