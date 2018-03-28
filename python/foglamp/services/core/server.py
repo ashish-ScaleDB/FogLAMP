@@ -36,6 +36,7 @@ from foglamp.services.core.interest_registry import exceptions as interest_regis
 from foglamp.services.core.scheduler.scheduler import Scheduler
 from foglamp.services.core.service_registry.monitor import Monitor
 from foglamp.services.common.service_announcer import ServiceAnnouncer
+from foglamp.services.core.user_model import User
 
 
 __author__ = "Amarendra K. Sinha, Praveen Garg, Terris Linenbach, Massimiliano Pinto"
@@ -135,7 +136,7 @@ class Server:
         'enableHttp': {
             'description': 'Enable or disable the connection via HTTP',
             'type': 'boolean',
-            'default': 'true'
+            'default': 'false'
         },
         'authProviders': {
             'description': 'A JSON object which is an array of authentication providers to use '
@@ -151,7 +152,7 @@ class Server:
         'authentication': {
             'description': 'To make the authentication mandatory or optional for API calls',
             'type': 'string',
-            'default': 'optional'  # make mandatory
+            'default': 'optional'
         },
         'allowPing': {
             'description': 'To allow access to the ping, regardless of the authentication required and'
@@ -616,6 +617,8 @@ class Server:
 
     @classmethod
     async def stop_rest_server(cls):
+        # Delete all user tokens
+        User.Objects.delete_all_user_tokens()
         cls.service_server.close()
         await cls.service_server.wait_closed()
         await cls.service_app.shutdown()
