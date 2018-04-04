@@ -48,7 +48,7 @@
 -- SCHEMA CREATION
 ----------------------------------------------------------------------
 
------ TABLES & SEQUENCES
+----- TABLES
 
 -- Log Codes Table
 -- List of tasks that log info into foglamp.log.
