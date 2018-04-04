@@ -232,7 +232,7 @@ sqlite_schema_update() {
     fi
 
     # Fetch FogLAMP DB version
-    CURR_VER=`${SQLITE_SQL} '${DEFAULT_SQLITE_DB_FILE}' "ATTACH DATABASE '${DEFAULT_SQLITE_DB_FILE}' AS 'foglamp'; SELECT id FROM foglamp.${VERSION_TABLE}" | tr -d ' '`
+    CURR_VER=`${SQLITE_SQL} ${DEFAULT_SQLITE_DB_FILE} "ATTACH DATABASE '${DEFAULT_SQLITE_DB_FILE}' AS 'foglamp'; SELECT id FROM foglamp.${VERSION_TABLE}" | tr -d ' '`
     if [ ! "${CURR_VER}" ]; then
         # No version found set DB version now
         INSERT_QUERY="ATTACH DATABASE '${DEFAULT_SQLITE_DB_FILE}' AS 'foglamp'; BEGIN; INSERT INTO foglamp.${VERSION_TABLE} (id) VALUES('${NEW_VERSION}'); COMMIT;"
