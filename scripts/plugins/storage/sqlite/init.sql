@@ -385,14 +385,15 @@ CREATE INDEX fki_role_asset_permissions_fk2
 -- 1 - PWD
 -- 2 - Public Key
 CREATE TABLE foglamp.users (
-       id            INTEGER   PRIMARY KEY AUTOINCREMENT,
-       uname         character varying(80)  NOT NULL,
-       role_id       integer                NOT NULL,
-       description   character varying(255) NOT NULL DEFAULT '',
-       pwd           character varying(255) ,
-       public_key    character varying(255) ,
-       enabled       boolean                NOT NULL DEFAULT 't',
-       access_method smallint               NOT NULL DEFAULT 0,
+       id                INTEGER   PRIMARY KEY AUTOINCREMENT,
+       uname             character varying(80)  NOT NULL,
+       role_id           integer                NOT NULL,
+       description       character varying(255) NOT NULL DEFAULT '',
+       pwd               character varying(255) ,
+       public_key        character varying(255) ,
+       enabled           boolean                NOT NULL DEFAULT 't',
+       pwd_last_changed  DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f+00:00', 'NOW')),
+       access_method     smallint               NOT NULL DEFAULT 0,
           CONSTRAINT users_fk1 FOREIGN KEY (role_id)
           REFERENCES roles (id) MATCH SIMPLE
                   ON UPDATE NO ACTION
@@ -417,6 +418,24 @@ CREATE TABLE foglamp.user_logins (
        REFERENCES users (id) MATCH SIMPLE
                ON UPDATE NO ACTION
                ON DELETE NO ACTION );
+
+ CREATE INDEX fki_user_logins_fk1
+     ON user_logins (user_id);
+
+-- User Password History table
+-- Maintains a history of passwords
+CREATE TABLE foglamp.user_pwd_history (
+       id               INTEGER   PRIMARY KEY AUTOINCREMENT,
+       user_id          integer   NOT NULL,
+       pwd              character varying(255),
+       CONSTRAINT user_pwd_history_fk1 FOREIGN KEY (user_id)
+       REFERENCES users (id) MATCH SIMPLE
+               ON UPDATE NO ACTION
+               ON DELETE NO ACTION );
+
+CREATE INDEX fki_user_pwd_history_fk1
+    ON user_pwd_history (user_id);
+
 
 -- User Resource Permissions table
 -- Association of users with resources and given permissions for each resource.
@@ -553,6 +572,13 @@ DELETE FROM foglamp.users;
 INSERT INTO foglamp.users ( uname, pwd, role_id, description )
      VALUES ('admin', '3a86096e7a7c123ba0bc3dfb7a1d350541649f1ff1aff1f37e0dc1ee4175b112:3759bf3302f5481e8c9cc9472c6088ac', 1, 'admin user'),
             ('user', '3a86096e7a7c123ba0bc3dfb7a1d350541649f1ff1aff1f37e0dc1ee4175b112:3759bf3302f5481e8c9cc9472c6088ac', 2, 'normal user');
+
+-- User password history
+DELETE FROM foglamp.user_pwd_history;
+INSERT INTO foglamp.user_pwd_history ( user_id, pwd )
+    VALUES (1, '3a86096e7a7c123ba0bc3dfb7a1d350541649f1ff1aff1f37e0dc1ee4175b112:3759bf3302f5481e8c9cc9472c6088ac'),
+           (2, '3a86096e7a7c123ba0bc3dfb7a1d350541649f1ff1aff1f37e0dc1ee4175b112:3759bf3302f5481e8c9cc9472c6088ac');
+
 
 -- User logins
 DELETE FROM foglamp.user_logins;
