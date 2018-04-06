@@ -411,9 +411,9 @@ CREATE TABLE foglamp.user_logins (
        id               INTEGER   PRIMARY KEY AUTOINCREMENT,
        user_id          integer   NOT NULL,
        ip               inet      NOT NULL DEFAULT '0.0.0.0',
-       ts               DATETIME  NOT NULL,
+       ts               DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f+00:00', 'NOW')),
        token            character varying(255)      NOT NULL,
-       token_expiration DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f+00:00', 'NOW')),
+       token_expiration DATETIME NOT NULL,
        CONSTRAINT user_logins_fk1 FOREIGN KEY (user_id)
        REFERENCES users (id) MATCH SIMPLE
                ON UPDATE NO ACTION
