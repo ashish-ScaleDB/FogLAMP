@@ -18,6 +18,7 @@ from foglamp.services.core import connect
 from foglamp.common.storage_client.payload_builder import PayloadBuilder
 from foglamp.common.storage_client.exceptions import StorageServerError
 from foglamp.common.configuration_manager import ConfigurationManager
+from foglamp.common import logger
 
 __author__ = "Praveen Garg, Ashish Jabble"
 __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
@@ -31,6 +32,7 @@ JWT_EXP_DELTA_SECONDS = 30*60  # 30 minutes
 ERROR_MSG = 'Something went wrong'
 USED_PASSWORD_HISTORY_COUNT = 3
 
+_logger = logger.setup(__name__, level=20)
 
 class User:
 
@@ -158,7 +160,8 @@ class User:
             if 'password' in user_data:
                 if len(user_data['password']):
                     hashed_pwd = cls.hash_password(user_data['password'])
-                    current_datetime = datetime.now()
+                    current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f+00:00")
+                    _logger.info("current_datetime--{}".format(current_datetime))
                     kwargs.update({"pwd": hashed_pwd, "pwd_last_changed": str(current_datetime)})
 
                     # get password history list
@@ -242,7 +245,9 @@ class User:
         def refresh_token_expiry(cls, token):
             storage_client = connect.get_storage()
             exp = datetime.now() + timedelta(seconds=JWT_EXP_DELTA_SECONDS)
-            payload = PayloadBuilder().SET(token_expiration=str(exp)).WHERE(['token', '=', token]).payload()
+            token_exp = datetime.strptime(str(exp), "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%d %H:%M:%S")
+            _logger.info("refresh_token_expiry---{}".format(token_exp))
+            payload = PayloadBuilder().SET(token_expiration=str(token_exp)).WHERE(['token', '=', token]).payload()
             storage_client.update_tbl("user_logins", payload)
 
         @classmethod
@@ -262,13 +267,13 @@ class User:
                 raise User.InvalidToken("Token appears to be invalid")
 
             r = result['rows'][0]
-            token_expiry = r["token_expiration"][:-6]
-
-            curr_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-
-            fmt = "%Y-%m-%d %H:%M:%S.%f"
+            token_expiry = r["token_expiration"]
+            _logger.info("token_expiry---{}".format(token_expiry))
+            curr_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            _logger.info("curr_time---{}".format(curr_time))
+            fmt = "%Y-%m-%d %H:%M:%S"
             diff = datetime.strptime(token_expiry, fmt) - datetime.strptime(curr_time, fmt)
-
+            _logger.info("diff.seconds---{}".format(diff.seconds))
             if diff.seconds < 0:
                 raise User.TokenExpired("The token has expired, login again")
 
@@ -303,11 +308,13 @@ class User:
                 raise User.DoesNotExist('User does not exist')
 
             found_user = result['rows'][0]
+            _logger.info("found_user---{}".format(found_user['pwd_last_changed']))
 
             # check age of password
             t1 = datetime.now()
             t2 = datetime.strptime(found_user['pwd_last_changed'][:-6], "%Y-%m-%d %H:%M:%S.%f")  # ignore timezone
             delta = t1 - t2
+            _logger.info("t1--{}, t2----{}, delta.days---{}".format(t1, t2, delta.days))
             if age == 0:
                 # user will not be forced to change their password.
                 pass
@@ -322,12 +329,13 @@ class User:
 
             # fetch user info
             exp = datetime.now() + timedelta(seconds=JWT_EXP_DELTA_SECONDS)
+            token_exp = datetime.strptime(str(exp), "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%d %H:%M:%S")
+            _logger.info("token_expiii---{}".format(token_exp))
             uid = found_user['id']
             p = {'uid': uid, 'exp': exp}
             jwt_token = jwt.encode(p, JWT_SECRET, JWT_ALGORITHM).decode("utf-8")
-
             payload = PayloadBuilder().INSERT(user_id=p['uid'], token=jwt_token,
-                                              token_expiration=str(exp), ip=host).payload()
+                                              token_expiration=str(token_exp), ip=host).payload()
 
             # Insert token, uid, expiration into user_login table
             try:
