@@ -590,7 +590,7 @@ CREATE TABLE foglamp.user_logins (
        ip               inet                        NOT NULL DEFAULT '0.0.0.0'::inet,
        ts               timestamp(6) with time zone NOT NULL DEFAULT now(),
        token            character varying(255)      NOT NULL,
-       token_expiration timestamp(6) with time zone NOT NULL,
+       token_expiration timestamp(6) without time zone NOT NULL,
        CONSTRAINT user_logins_pkey PRIMARY KEY (id),
        CONSTRAINT user_logins_fk1 FOREIGN KEY (user_id)
        REFERENCES foglamp.users (id) MATCH SIMPLE
