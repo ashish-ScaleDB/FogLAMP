@@ -246,16 +246,6 @@ class TestAuthOptional:
             patch_auth_logger_warn.assert_called_once_with(WARN_MSG)
         patch_logger_info.assert_called_once_with('Received %s request for %s', 'DELETE', '/foglamp/admin/1/delete')
 
-    async def test_create_user(self, client):
-        request_data = {"username": "ajtest", "password": "F0gl@mp"}
-        with patch.object(middleware._logger, 'info') as patch_logger_info:
-            with patch.object(auth._logger, 'warning') as patch_logger_warning:
-                resp = await client.post('/foglamp/admin/user', data=json.dumps(request_data))
-                assert 403 == resp.status
-                assert FORBIDDEN == resp.reason
-            patch_logger_warning.assert_called_once_with(WARN_MSG)
-        patch_logger_info.assert_called_once_with('Received %s request for %s', 'POST', '/foglamp/admin/user')
-
     async def test_reset(self, client):
         with patch.object(middleware._logger, 'info') as patch_logger_info:
             with patch.object(auth._logger, 'warning') as patch_logger_warning:

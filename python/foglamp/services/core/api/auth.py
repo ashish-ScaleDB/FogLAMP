@@ -205,10 +205,6 @@ async def create_user(request):
         curl -H "authorization: <token>" -X POST -d '{"username": "any1", "password": "User@123"}' https://localhost:1995/foglamp/admin/user --insecure
         curl -H "authorization: <token>" -X POST -d '{"username": "admin1", "password": "F0gl@mp!", "role_id": 1}' https://localhost:1995/foglamp/admin/user --insecure
     """
-    if request.is_auth_optional:
-        _logger.warning(FORBIDDEN_MSG)
-        raise web.HTTPForbidden
-    
     data = await request.json()
     username = data.get('username')
     password = data.get('password')

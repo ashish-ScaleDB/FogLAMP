@@ -757,9 +757,7 @@ INSERT INTO foglamp.roles ( name, description )
 
 -- Users
 DELETE FROM foglamp.users;
-INSERT INTO foglamp.users ( uname, pwd, role_id, description )
-     VALUES ('admin', '3a86096e7a7c123ba0bc3dfb7a1d350541649f1ff1aff1f37e0dc1ee4175b112:3759bf3302f5481e8c9cc9472c6088ac', 1, 'admin user'),
-            ('user', '3a86096e7a7c123ba0bc3dfb7a1d350541649f1ff1aff1f37e0dc1ee4175b112:3759bf3302f5481e8c9cc9472c6088ac', 2, 'normal user');
+
 
 -- User password history
 DELETE FROM foglamp.user_pwd_history;
