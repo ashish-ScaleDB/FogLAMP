@@ -9,7 +9,7 @@
 from abc import ABC, abstractmethod
 import argparse
 import time
-from foglamp.common.storage_client.storage_client import ReadingsStorageClient, StorageClient
+from foglamp.common.storage_client.storage_client import ReadingsStorageClientAsync, StorageClientAsync
 from foglamp.common import logger
 from foglamp.common.microservice_management_client.microservice_management_client import MicroserviceManagementClient
 
@@ -90,8 +90,8 @@ class FoglampProcess(ABC):
             raise ValueError("--name is not specified")
 
         self._core_microservice_management_client = MicroserviceManagementClient(self._core_management_host,self._core_management_port)
-        self._readings_storage = ReadingsStorageClient(self._core_management_host, self._core_management_port)
-        self._storage = StorageClient(self._core_management_host, self._core_management_port)
+        self._readings_storage = ReadingsStorageClientAsync(self._core_management_host, self._core_management_port)
+        self._storage = StorageClientAsync(self._core_management_host, self._core_management_port)
 
     # pure virtual method run() to be implemented by child class
     @abstractmethod

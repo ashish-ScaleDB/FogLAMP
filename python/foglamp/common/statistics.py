@@ -7,7 +7,7 @@
 from foglamp.common import logger
 
 from foglamp.common.storage_client.payload_builder import PayloadBuilder
-from foglamp.common.storage_client.storage_client import StorageClient
+from foglamp.common.storage_client.storage_client import StorageClientAsync
 
 
 __author__ = "Ashwin Gopalakrishnan, Ashish Jabble, Mark Riddoch"
@@ -35,7 +35,7 @@ class Statistics(object):
     def __init__(self, storage=None):
         self.__dict__ = self._shared_state
         if self._storage is None:
-            if not isinstance(storage, StorageClient):
+            if not isinstance(storage, StorageClientAsync):
                 raise TypeError('Must be a valid Storage object')
             self._storage = storage
         if self._registered_keys is None:
