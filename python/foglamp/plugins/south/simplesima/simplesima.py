@@ -76,20 +76,20 @@ def plugin_start(data):
     """
     async def save_data():
         try:
-            while True:
-                # for i in range(0,500000):
-                    time_stamp = str(datetime.datetime.now(tz=datetime.timezone.utc))
-                    data = {
-                        'asset': 'a',
-                        'timestamp': time_stamp,
-                        'key': str(uuid.uuid4()),
-                        'readings': {
-                            "a": 1,
-                        }
+            # while True:
+            for i in range(0, 100000):
+                time_stamp = str(datetime.datetime.now(tz=datetime.timezone.utc))
+                data = {
+                    'asset': 'a',
+                    'timestamp': time_stamp,
+                    'key': str(uuid.uuid4()),
+                    'readings': {
+                        "a": 1,
                     }
-                    await Ingest.add_readings(asset='{}'.format(data['asset']),
-                                                       timestamp=data['timestamp'], key=data['key'],
-                                                       readings=data['readings'])
+                }
+                await Ingest.add_readings(asset='{}'.format(data['asset']),
+                                                   timestamp=data['timestamp'], key=data['key'],
+                                                   readings=data['readings'])
         except (Exception, RuntimeError, pexpect.exceptions.TIMEOUT) as ex:
             _LOGGER.exception("simplesima async exception: {}".format(str(ex)))
             raise exceptions.DataRetrievalError(ex)

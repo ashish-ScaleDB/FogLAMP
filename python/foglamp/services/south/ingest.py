@@ -98,13 +98,13 @@ class Ingest(object):
     _write_statistics_frequency_seconds = 5
     """The number of seconds to wait before writing readings-related statistics to storage"""
 
-    _readings_buffer_size = 500
+    _readings_buffer_size = 16000
     """Maximum number of readings to buffer in memory"""
 
-    _max_concurrent_readings_inserts = 5
+    _max_concurrent_readings_inserts = 20
     """Maximum number of concurrent processes that send batches of readings to storage"""
 
-    _readings_insert_batch_size = 100
+    _readings_insert_batch_size = 8000
     """Maximum number of readings in a batch of inserts"""
 
     _readings_insert_batch_timeout_seconds = 1
