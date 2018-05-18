@@ -17,6 +17,7 @@ import uuid
 from aiohttp import web
 import aiohttp
 import json
+import uvloop
 
 from foglamp.common import logger
 from foglamp.common.audit_logger import AuditLogger
@@ -40,7 +41,6 @@ from foglamp.services.core.service_registry.monitor import Monitor
 from foglamp.services.common.service_announcer import ServiceAnnouncer
 from foglamp.services.core.user_model import User
 
-
 __author__ = "Amarendra K. Sinha, Praveen Garg, Terris Linenbach, Massimiliano Pinto"
 __copyright__ = "Copyright (c) 2017-2018 OSIsoft, LLC"
 __license__ = "Apache 2.0"
@@ -54,7 +54,7 @@ _FOGLAMP_ROOT = os.getenv("FOGLAMP_ROOT", default='/usr/local/foglamp')
 _SCRIPTS_DIR = os.path.expanduser(_FOGLAMP_ROOT + '/scripts')
 
 # PID dir and filename
-_FOGLAMP_PID_DIR= "/var/run"
+_FOGLAMP_PID_DIR = "/var/run"
 _FOGLAMP_PID_FILE = "foglamp.core.pid"
 
 
@@ -199,26 +199,26 @@ class Server:
         else:
             certs_dir = os.path.expanduser(_FOGLAMP_ROOT + '/data/etc/certs')
 
-        """ Generated using      
+        """ Generated using
                 $ openssl version
                 OpenSSL 1.0.2g  1 Mar 2016
-                 
+
         The openssl library is required to generate your own certificate. Run the following command in your local environment to see if you already have openssl installed installed.
-        
+
         $ which openssl
         /usr/bin/openssl
-        
+
         If the which command does not return a path then you will need to install openssl yourself:
-        
+
         $ apt-get install openssl
-        
+
         Generate private key and certificate signing request:
-        
+
         A private key and certificate signing request are required to create an SSL certificate.
-        When the openssl req command asks for a “challenge password”, just press return, leaving the password empty. 
-        This password is used by Certificate Authorities to authenticate the certificate owner when they want to revoke 
+        When the openssl req command asks for a “challenge password”, just press return, leaving the password empty.
+        This password is used by Certificate Authorities to authenticate the certificate owner when they want to revoke
         their certificate. Since this is a self-signed certificate, there’s no way to revoke it via CRL(Certificate Revocation List).
-        
+
         $ openssl genrsa -des3 -passout pass:x -out server.pass.key 2048
         ...
         $ openssl rsa -passin pass:x -in server.pass.key -out foglamp.key
@@ -231,17 +231,17 @@ class Server:
         ...
         A challenge password []:
         ...
-       
+
         Generate SSL certificate:
-       
+
         The self-signed SSL certificate is generated from the server.key private key and server.csr files.
-        
+
         $ openssl x509 -req -sha256 -days 365 -in server.csr -signkey server.key -out server.cert
-        
+
         The server.cert file is the certificate suitable for use along with the server.key private key.
-        
+
         Put these in $FOGLAMP_DATA/etc/certs, $FOGLAMP_ROOT/data/etc/certs or /usr/local/foglamp/data/etc/certs
-        
+
         """
         cert = certs_dir + '/{}.cert'.format(cls.cert_file_name)
         key = certs_dir + '/{}.key'.format(cls.cert_file_name)
@@ -266,7 +266,8 @@ class Server:
             config = cls._REST_API_DEFAULT_CONFIG
             category = 'rest_api'
 
-            await cls._configuration_manager.create_category(category, config, 'The FogLAMP Admin and User REST API', True)
+            await cls._configuration_manager.create_category(category, config, 'The FogLAMP Admin and User REST API',
+                                                             True)
             config = await cls._configuration_manager.get_category_all_items(category)
 
             try:
@@ -313,7 +314,8 @@ class Server:
 
             if cls._configuration_manager is None:
                 _logger.error("No configuration manager available")
-            await cls._configuration_manager.create_category(category, config, 'The FogLAMP service configuration', True)
+            await cls._configuration_manager.create_category(category, config, 'The FogLAMP service configuration',
+                                                             True)
             config = await cls._configuration_manager.get_category_all_items(category)
 
             try:
@@ -396,7 +398,8 @@ class Server:
                 found_services = ServiceRegistry.get(name="FogLAMP Storage")
                 storage_service = found_services[0]
                 cls._storage_client = StorageClient(cls._host, cls.core_management_port, svc=storage_service)
-            except (service_registry_exceptions.DoesNotExist, InvalidServiceInstance, StorageServiceUnavailable, Exception) as ex:
+            except (service_registry_exceptions.DoesNotExist, InvalidServiceInstance, StorageServiceUnavailable,
+                    Exception) as ex:
                 await asyncio.sleep(5)
 
     @classmethod
@@ -417,13 +420,13 @@ class Server:
             path = _FOGLAMP_ROOT + "/data"
         else:
             path = _FOGLAMP_DATA
-        return path + _FOGLAMP_PID_DIR + "/" + _FOGLAMP_PID_FILE 
+        return path + _FOGLAMP_PID_DIR + "/" + _FOGLAMP_PID_FILE
 
     @classmethod
     def _pidfile_exists(cls):
         """ Check whether the PID file exists """
         try:
-            fh = open(cls._pidfile,'r')
+            fh = open(cls._pidfile, 'r')
             fh.close()
             return True
         except (FileNotFoundError, IOError, TypeError):
@@ -472,12 +475,12 @@ class Server:
                 raise
 
             # Build the JSON object to write into PID file
-            info_data = {'processID' : pid,\
-                         'adminAPI' : {\
-                             "protocol": "HTTP" if cls.is_rest_server_http_enabled else "HTTPS",\
-                             "addresses": [api_address],\
-                             "port": api_port }\
-                        }
+            info_data = {'processID': pid, \
+                         'adminAPI': { \
+                             "protocol": "HTTP" if cls.is_rest_server_http_enabled else "HTTPS", \
+                             "addresses": [api_address], \
+                             "port": api_port} \
+                         }
 
             # Write data into PID file
             fh.write(json.dumps(info_data))
@@ -504,10 +507,10 @@ class Server:
 
             # start storage
             loop.run_until_complete(cls._start_storage(loop))
-            
+
             # get storage client
             loop.run_until_complete(cls._get_storage_client())
-            
+
             # obtain configuration manager and interest registry
             cls._configuration_manager = ConfigurationManager(cls._storage_client)
             cls._interest_registry = InterestRegistry(cls._configuration_manager)
@@ -536,16 +539,19 @@ class Server:
             # to allow other microservices to find FogLAMP
             loop.run_until_complete(cls.service_config())
             _logger.info('Announce management API service')
-            cls.management_announcer = ServiceAnnouncer('core.{}'.format(cls._service_name), cls._MANAGEMENT_SERVICE, cls.core_management_port,
+            cls.management_announcer = ServiceAnnouncer('core.{}'.format(cls._service_name), cls._MANAGEMENT_SERVICE,
+                                                        cls.core_management_port,
                                                         ['The FogLAMP Core REST API'])
 
-            cls.service_server, cls.service_server_handler = cls._start_app(loop, cls.service_app, host, cls.rest_server_port, ssl_ctx=ssl_ctx)
+            cls.service_server, cls.service_server_handler = cls._start_app(loop, cls.service_app, host,
+                                                                            cls.rest_server_port, ssl_ctx=ssl_ctx)
             address, service_server_port = cls.service_server.sockets[0].getsockname()
 
             # Write PID file with REST API details
             cls._write_pid(address, service_server_port)
 
-            _logger.info('REST API Server started on %s://%s:%s', 'http' if cls.is_rest_server_http_enabled else 'https',
+            _logger.info('REST API Server started on %s://%s:%s',
+                         'http' if cls.is_rest_server_http_enabled else 'https',
                          address, service_server_port)
 
             # All services are up so now we can advertise the Admin and User REST API's
@@ -575,13 +581,14 @@ class Server:
     @classmethod
     def _register_core(cls, host, mgt_port, service_port):
         core_service_id = ServiceRegistry.register(name="FogLAMP Core", s_type="Core", address=host,
-                                                     port=service_port, management_port=mgt_port)
+                                                   port=service_port, management_port=mgt_port)
 
         return core_service_id
 
     @classmethod
     def start(cls):
         """Starts FogLAMP"""
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         loop = asyncio.get_event_loop()
         cls._start_core(loop=loop)
 
@@ -746,11 +753,12 @@ class Server:
 
             try:
                 registered_service_id = ServiceRegistry.register(service_name, service_type, service_address,
-                                                                   service_port, service_management_port, service_protocol)
+                                                                 service_port, service_management_port,
+                                                                 service_protocol)
                 try:
                     if not cls._storage_client is None:
                         cls._audit = AuditLogger(cls._storage_client)
-                        await cls._audit.information('SRVRG', { 'name' : service_name})
+                        await cls._audit.information('SRVRG', {'name': service_name})
                 except Exception as ex:
                     _logger.info("Failed to audit registration: %s", str(ex))
             except service_registry_exceptions.AlreadyExistsWithTheSameName:
@@ -826,8 +834,8 @@ class Server:
                 services_list = ServiceRegistry.get(s_type=service_type)
             else:
                 services_list = ServiceRegistry.filter_by_name_and_type(
-                        name=service_name, s_type=service_type
-                    )
+                    name=service_name, s_type=service_type
+                )
         except service_registry_exceptions.DoesNotExist as ex:
             if not service_name and not service_type:
                 msg = 'No service found'
@@ -901,10 +909,14 @@ class Server:
             try:
                 registered_interest_id = cls._interest_registry.register(microservice_uuid, category_name)
             except interest_registry_exceptions.ErrorInterestRegistrationAlreadyExists:
-                raise web.HTTPBadRequest(reason='An InterestRecord already exists by microservice_uuid {} for category_name {}'.format(microservice_uuid, category_name))
+                raise web.HTTPBadRequest(
+                    reason='An InterestRecord already exists by microservice_uuid {} for category_name {}'.format(
+                        microservice_uuid, category_name))
 
             if not registered_interest_id:
-                raise web.HTTPBadRequest(reason='Interest by microservice_uuid {} for category_name {} could not be registered'.format(microservice_uuid, category_name))
+                raise web.HTTPBadRequest(
+                    reason='Interest by microservice_uuid {} for category_name {} could not be registered'.format(
+                        microservice_uuid, category_name))
 
             _response = {
                 'id': registered_interest_id,
@@ -935,7 +947,8 @@ class Server:
             try:
                 cls._interest_registry.get(registration_id=interest_registration_id)
             except interest_registry_exceptions.DoesNotExist:
-                raise ValueError('InterestRecord with registration_id {} does not exist'.format(interest_registration_id))
+                raise ValueError(
+                    'InterestRecord with registration_id {} does not exist'.format(interest_registration_id))
 
             cls._interest_registry.unregister(interest_registration_id)
 
@@ -1019,7 +1032,7 @@ class Server:
 
     @classmethod
     async def update_configuration_item(cls, request):
-        res =await conf_api.set_configuration_item(request)
+        res = await conf_api.set_configuration_item(request)
         return res
 
     @classmethod
