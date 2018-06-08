@@ -459,9 +459,7 @@ If you are curious to see which categories are available in FogLAMP, simply type
 .. code-block:: console
 
   $ curl -s http://localhost:8081/foglamp/category ; echo
-  { "categories": [ { "key": "CC2650ASYN", "description": "TI SensorTag CC2650 async South Plugin"    },
-                    { "key": "CC2650POLL", "description": "TI SensorTag CC2650 polling South Plugin"  },
-                    { "key": "COAP",       "description": "COAP Device"                               },
+  { "categories": [ { "key": "COAP",       "description": "COAP Device"                               },
                     { "key": "HTTP_SOUTH", "description": "HTTP_SOUTH Device"                         },
                     { "key": "POLL",       "description": "South Plugin polling template"             },
                     { "key": "SCHEDULER",  "description": "Scheduler configuration"                   },

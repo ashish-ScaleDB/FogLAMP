@@ -54,14 +54,6 @@ This version of FogLAMP provides the following plugins in the main repository:
 |         |            |            |                             | Ubuntu Core: x86, ARM |br| |                                        |
 |         |            |            |                             | Raspbian                   |                                        |
 +---------+------------+------------+-----------------------------+----------------------------+----------------------------------------+
-| South   | CC2650POLL | Disabled   | TI SensorTag CC2650 |br|    | Ubuntu: x86_64 |br|        | It requires BLE support. |br|          |
-|         |            |            | in polling mode             | Ubuntu Core: x86, ARM |br| | There are issues with Ubuntu Core |br| |
-|         |            |            |                             | Raspbian                   | on ARM, reported |here BT|             |
-+---------+------------+------------+-----------------------------+----------------------------+----------------------------------------+
-| South   | CC2650ASYN | Disabled   | TI SensorTag CC2650 |br|    | Ubuntu: x86_64 |br|        | It requires BLE support. |br|          |
-|         |            |            | asynchronous |br|           | Ubuntu Core: x86, ARM |br| | There are issues with Ubuntu Core |br| |
-|         |            |            | (listening) mode            | Raspbian                   | on ARM, reported |here BT|.            |
-+---------+------------+------------+-----------------------------+----------------------------+----------------------------------------+
 | South   | HTTP_SOUTH | Enabled    | HTTP Listener               | Ubuntu: x86_64 |br|        |                                        |
 |         |            |            |                             | Ubuntu Core: x86, ARM |br| |                                        |
 |         |            |            |                             | Raspbian                   |                                        |

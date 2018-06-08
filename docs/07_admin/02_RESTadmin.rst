@@ -219,11 +219,7 @@ The response payload is a JSON object with an array of JSON objects, one per val
 .. code-block:: console
 
   $ curl -X GET http://localhost:8081/foglamp/category 
-  { "categories": [ { "key"         : "CC2650ASYN",
-                      "description" : "TI SensorTag CC2650 async South Plugin" },
-                    { "key"         : "CC2650POLL",
-                      "description" : "TI SensorTag CC2650 polling South Plugin" },
-                    { "key"         : "COAP",
+  { "categories": [ { "key"         : "COAP",
                       "description" : "COAP Device" },
                     { "key"         : "HTTP_SOUTH",
                       "description" : "HTTP_SOUTH Device" },

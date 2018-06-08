@@ -41,7 +41,7 @@ class TestInterestRegistryApi:
             requests.delete(BASE_URL + '/interest/' + s["registrationId"])
 
     async def test_register_interest(self):
-        data = {"category": "CC2650POLL", "service": str(uuid.uuid4())}
+        data = {"category": "BLAH", "service": str(uuid.uuid4())}
         r = requests.post(BASE_URL + '/interest', data=json.dumps(data), headers=headers)
         res = dict(r.json())
 
