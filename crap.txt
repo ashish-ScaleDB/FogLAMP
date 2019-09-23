@@ -1,0 +1,87 @@
+odroid@odroid:~/aj$ git clone https://github.com/hardkernel/wiringPi
+Cloning into 'wiringPi'...
+remote: Enumerating objects: 124, done.
+remote: Counting objects: 100% (124/124), done.
+remote: Compressing objects: 100% (68/68), done.
+remote: Total 1774 (delta 79), reused 88 (delta 56), pack-reused 1650
+Receiving objects: 100% (1774/1774), 911.46 KiB | 7.41 MiB/s, done.
+Resolving deltas: 100% (1228/1228), done.
+odroid@odroid:~/aj$ cd wiringPi/
+odroid@odroid:~/aj/wiringPi$ sudo ./build
+wiringPi Build script
+=====================
+
+
+WiringPi Library
+[UnInstall]
+[Compile] wiringPi.c
+[Compile] wiringSerial.c
+[Compile] wiringShift.c
+[Compile] piHiPri.c
+[Compile] piThread.c
+[Compile] wiringPiSPI.c
+[Compile] wiringPiI2C.c
+[Compile] softPwm.c
+[Compile] softTone.c
+[Compile] mcp23008.c
+[Compile] mcp23016.c
+[Compile] mcp23017.c
+[Compile] mcp23s08.c
+[Compile] mcp23s17.c
+[Compile] sr595.c
+[Compile] pcf8574.c
+[Compile] pcf8591.c
+[Compile] mcp3002.c
+[Compile] mcp3004.c
+[Compile] mcp4802.c
+[Compile] mcp3422.c
+[Compile] max31855.c
+[Compile] max5322.c
+[Compile] ads1115.c
+[Compile] sn3218.c
+[Compile] bmp180.c
+[Compile] htu21d.c
+[Compile] ds18b20.c
+[Compile] drcSerial.c
+[Compile] drcNet.c
+[Compile] pseudoPins.c
+[Compile] wpiExtensions.c
+[Compile] odroidc1.c
+[Compile] odroidc2.c
+[Compile] odroidxu3.c
+[Compile] odroidn1.c
+[Compile] odroidn2.c
+[Link (Dynamic)]
+[Install Headers]
+[Install Dynamic Lib]
+
+WiringPi Devices Library
+[UnInstall]
+[Compile] ds1302.c
+[Compile] maxdetect.c
+[Compile] piNes.c
+[Compile] gertboard.c
+[Compile] piFace.c
+[Compile] lcd128x64.c
+[Compile] lcd.c
+[Compile] scrollPhat.c
+[Compile] piGlow.c
+[Link (Dynamic)]
+[Install Headers]
+[Install Dynamic Lib]
+
+GPIO Utility
+[Compile] gpio.c
+[Compile] readall.c
+[Compile] pins.c
+[Link]
+[Install]
+
+All Done.
+
+NOTE: To compile programs with wiringPi, you need to add:
+    -lwiringPi
+  to your compile line(s) To use the Gertboard, MaxDetect, etc.
+  code (the devLib), you need to also add:
+    -lwiringPiDev
+  to your compile line(s).
